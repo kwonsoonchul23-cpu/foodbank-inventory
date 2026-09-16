@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { margin: 0; padding: 0; font-family: sans-serif; background: #121212; color: white; display: flex; flex-direction: column; align-items: center; }
+        svg { border: 1px solid #333; background: #1e1e1e; cursor: default; margin-top: 10px; }
+        .rack { stroke: #888; stroke-width: 2; cursor: move; rx: 4; ry: 4; }
+        .rack.bg { stroke-dasharray: 5,5; opacity: 0.6; }
+        .rack.selected { stroke: #4caf50; stroke-width: 4; }
+        .rack-text { fill: #111; font-weight: bold; font-size: 14px; pointer-events: none; text-anchor: middle; dominant-baseline: middle; }
+        .resize-handle { fill: #4caf50; cursor: se-resize; }
+        
+        #toolbar { padding: 10px; width: 100%; display: flex; justify-content: center; gap: 10px; background: #000; flex-wrap: wrap; }
+        button { padding: 8px 16px; background: #4caf50; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #45a049; }
+        
+        #prop-panel { display: none; background: #222; padding: 10px; border-radius: 6px; margin-top: 10px; gap: 10px; align-items: center; }
+        #prop-panel.visible { display: flex; }
+        #prop-panel input[type="text"], #prop-panel input[type="number"] { padding: 5px; border-radius: 4px; border: 1px solid #555; background: #333; color: white; width: 80px; }
+        #prop-panel input[type="color"] { cursor: pointer; padding: 0; width: 30px; height: 30px; border: none; }
+        .del-btn { background: #f44336; }
+        .del-btn:hover { background: #d32f2f; }
+    </style>
+</head>
+<body>
+    <div id="toolbar">
+        <button onclick="addRack(false)">+ 일반 랙 추가</button>
+        <button onclick="addRack(true)">+ 배경/출입구 추가</button>
+        <button onclick="saveLayout()">💾 현재 장소 저장</button>
+    </div>
+    
+    <div id="prop-panel">
+        <span>이름: <input type="text" id="prop-name" onchange="updateProp('name', this.value)"></span>
+        <span>W: <input type="number" id="prop-w" onchange="updateProp('w', parseInt(this.value))"></span>
+        <span>H: <input type="number" id="prop-h" onchange="updateProp('h', parseInt(this.value))"></span>
+        <span>색상: <input type="color" id="prop-color" onchange="updateProp('color', this.value)"></span>
+        <span><input type="checkbox" id="prop-bg" onchange="updateProp('is_bg', this.checked)"> 배경 여부</span>
+        <button class="del-btn" onclick="deleteSelected()">🗑️ 삭제</button>
+    </div>
+
+    <svg id="svg-canvas" width="1000" height="600" viewBox="0 0 1000 600"></svg>
+    
+    <script>
+        let layoutData = { width: 1000, height: 600, racks: [] };
+        let selectedRackId = null;
+        let draggedRack = null;
+        let resizedRack = null;
+        let startX, startY;
+
+        function sendMessageToStreamlitClient(type, data) {
+            window.parent.postMessage(Object.assign({ isStreamlitMessage: true, type: type }, data), "*");
+        }
+
+        function setFrameHeight() {
+            sendMessageToStreamlitClient("streamlit:setFrameHeight", { height: document.body.scrollHeight + 30 });
+        }
+
+        window.addEventListener("message", function(event) {
+            if (event.data.type === "streamlit:render") {
+                const args = event.data.args;
+                if (args && args.layout_data) {
+                    layoutData = args.layout_data;
+                    renderMap();
+                }
+                setFrameHeight();
+            }
+        });
+
+        sendMessageToStreamlitClient("streamlit:componentReady", { apiVersion: 1 });
+
+        const svg = document.getElementById("svg-canvas");
+
+        function renderMap() {
+            svg.innerHTML = '';
+            layoutData.racks.forEach(rack => {
+                const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+                g.setAttribute("transform", `translate(${rack.x}, ${rack.y})`);
+                
+                const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+                rect.setAttribute("width", rack.w);
+                rect.setAttribute("height", rack.h);
+                let classes = "rack";
+                if (rack.is_bg) classes += " bg";
+                if (rack.id === selectedRackId) classes += " selected";
+                rect.setAttribute("class", classes);
+                rect.setAttribute("fill", rack.color || "#e0e0e0");
+                rect.dataset.id = rack.id;
+                
+                const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                text.setAttribute("x", rack.w / 2);
+                text.setAttribute("y", rack.h / 2);
+                text.setAttribute("class", "rack-text");
+                text.textContent = rack.name;
+
+                rect.addEventListener("mousedown", (e) => startDrag(e, rack.id));
+                
+                g.appendChild(rect);
+                g.appendChild(text);
+                
+                if (rack.id === selectedRackId) {
+                    const handle = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+                    handle.setAttribute("x", rack.w - 10);
+                    handle.setAttribute("y", rack.h - 10);
+                    handle.setAttribute("width", 10);
+                    handle.setAttribute("height", 10);
+                    handle.setAttribute("class", "resize-handle");
+                    handle.addEventListener("mousedown", (e) => startResize(e, rack.id));
+                    g.appendChild(handle);
+                }
+                
+                svg.appendChild(g);
+            });
+            updatePropPanel();
+        }
+
+        function addRack(isBg) {
+            const newId = "r_" + Date.now();
+            layoutData.racks.push({
+                id: newId,
+                name: isBg ? "배경 장식" : "새 랙",
+                x: 100, y: 100, w: 120, h: 50,
+                color: isBg ? "#ffebee" : "#e8f5e9",
+                is_bg: isBg
+            });
+            selectedRackId = newId;
+            renderMap();
+        }
+
+        function startDrag(evt, id) {
+            evt.stopPropagation();
+            selectedRackId = id;
+            draggedRack = layoutData.racks.find(r => r.id === id);
+            startX = evt.clientX;
+            startY = evt.clientY;
+            document.addEventListener("mousemove", drag);
+            document.addEventListener("mouseup", endInteraction);
+            renderMap();
+        }
+
+        function drag(evt) {
+            if (!draggedRack) return;
+            const dx = evt.clientX - startX;
+            const dy = evt.clientY - startY;
+            draggedRack.x += dx;
+            draggedRack.y += dy;
+            startX = evt.clientX;
+            startY = evt.clientY;
+            renderMap();
+        }
+
+        function startResize(evt, id) {
+            evt.stopPropagation();
+            selectedRackId = id;
+            resizedRack = layoutData.racks.find(r => r.id === id);
+            startX = evt.clientX;
+            startY = evt.clientY;
+            document.addEventListener("mousemove", resize);
+            document.addEventListener("mouseup", endInteraction);
+        }
+
+        function resize(evt) {
+            if (!resizedRack) return;
+            const dx = evt.clientX - startX;
+            const dy = evt.clientY - startY;
+            resizedRack.w = Math.max(30, resizedRack.w + dx);
+            resizedRack.h = Math.max(30, resizedRack.h + dy);
+            startX = evt.clientX;
+            startY = evt.clientY;
+            renderMap();
+        }
+
+        function endInteraction() {
+            draggedRack = null;
+            resizedRack = null;
+            document.removeEventListener("mousemove", drag);
+            document.removeEventListener("mousemove", resize);
+            document.removeEventListener("mouseup", endInteraction);
+        }
+
+        svg.addEventListener("mousedown", () => {
+            selectedRackId = null;
+            renderMap();
+        });
+
+        function updatePropPanel() {
+            const panel = document.getElementById("prop-panel");
+            if (!selectedRackId) {
+                panel.classList.remove("visible");
+                return;
+            }
+            const rack = layoutData.racks.find(r => r.id === selectedRackId);
+            if (!rack) return;
+            
+            panel.classList.add("visible");
+            document.getElementById("prop-name").value = rack.name;
+            document.getElementById("prop-w").value = rack.w;
+            document.getElementById("prop-h").value = rack.h;
+            document.getElementById("prop-color").value = rack.color || "#ffffff";
+            document.getElementById("prop-bg").checked = rack.is_bg || false;
+            setFrameHeight();
+        }
+
+        function updateProp(key, value) {
+            const rack = layoutData.racks.find(r => r.id === selectedRackId);
+            if (rack) {
+                rack[key] = value;
+                renderMap();
+            }
+        }
+
+        function deleteSelected() {
+            layoutData.racks = layoutData.racks.filter(r => r.id !== selectedRackId);
+            selectedRackId = null;
+            renderMap();
+        }
+
+        function saveLayout() {
+            sendMessageToStreamlitClient("streamlit:setComponentValue", { value: layoutData });
+        }
+    </script>
+</body>
+</html>

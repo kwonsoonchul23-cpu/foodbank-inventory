@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { margin: 0; padding: 0; font-family: sans-serif; background: #121212; color: white; display: flex; flex-direction: column; align-items: center; }
+        svg { border: 1px solid #333; background: #1e1e1e; margin-top: 10px; }
+        .rack { stroke: #888; stroke-width: 2; cursor: pointer; transition: all 0.2s; rx: 4; ry: 4; }
+        .rack.bg { stroke-dasharray: 5,5; opacity: 0.6; cursor: default; }
+        .rack:not(.bg):hover { stroke: #fff; stroke-width: 3; filter: brightness(1.2); }
+        .rack.selected { stroke: #8b5cf6; stroke-width: 4; filter: brightness(0.8); }
+        .rack-text { fill: #111; font-weight: bold; font-size: 14px; pointer-events: none; text-anchor: middle; dominant-baseline: middle; }
+    </style>
+</head>
+<body>
+    <svg id="svg-canvas" width="1000" height="600" viewBox="0 0 1000 600"></svg>
+    <script>
+        let layoutData = { width: 1000, height: 600, racks: [] };
+        let selectedId = null;
+
+        function sendMessageToStreamlitClient(type, data) {
+            window.parent.postMessage(Object.assign({ isStreamlitMessage: true, type: type }, data), "*");
+        }
+
+        function setFrameHeight() {
+            sendMessageToStreamlitClient("streamlit:setFrameHeight", { height: document.body.scrollHeight + 30 });
+        }
+
+        window.addEventListener("message", function(event) {
+            if (event.data.type === "streamlit:render") {
+                const args = event.data.args;
+                if (args && args.layout_data) {
+                    layoutData = args.layout_data;
+                    renderMap();
+                }
+                setFrameHeight();
+            }
+        });
+
+        sendMessageToStreamlitClient("streamlit:componentReady", { apiVersion: 1 });
+
+        const svg = document.getElementById("svg-canvas");
+
+        function renderMap() {
+            svg.innerHTML = '';
+            layoutData.racks.forEach(rack => {
+                const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+                g.setAttribute("transform", `translate(${rack.x}, ${rack.y})`);
+                
+                const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+                rect.setAttribute("width", rack.w);
+                rect.setAttribute("height", rack.h);
+                let classes = "rack";
+                if (rack.is_bg) classes += " bg";
+                if (selectedId === rack.id) classes += " selected";
+                rect.setAttribute("class", classes);
+                rect.setAttribute("fill", rack.color || "#e0e0e0");
+                rect.dataset.id = rack.id;
+                
+                const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                text.setAttribute("x", rack.w / 2);
+                text.setAttribute("y", rack.h / 2);
+                text.setAttribute("class", "rack-text");
+                text.textContent = rack.name;
+
+                if (!rack.is_bg) {
+                    rect.addEventListener("click", () => selectRack(rack.id));
+                }
+                
+                g.appendChild(rect);
+                g.appendChild(text);
+                svg.appendChild(g);
+            });
+        }
+
+        function selectRack(id) {
+            selectedId = id;
+            renderMap();
+            sendMessageToStreamlitClient("streamlit:setComponentValue", { value: { selected_rack_id: id } });
+        }
+    </script>
+</body>
+</html>

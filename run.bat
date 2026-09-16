@@ -1,0 +1,3 @@
+@echo off
+echo Starting Warehouse Floor Plan Dashboard...
+start "" "%~dp0index.html"

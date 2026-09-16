@@ -1,0 +1,1425 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Inventory Warehouse Dashboard</title>
+    <!-- Google Fonts: Inter & Outfit -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-base: #0b0f19;
+            --bg-surface: rgba(17, 24, 39, 0.7);
+            --bg-card: rgba(31, 41, 55, 0.4);
+            --border-glow: rgba(255, 255, 255, 0.08);
+            --text-primary: #f3f4f6;
+            --text-secondary: #9ca3af;
+            --text-muted: #6b7280;
+            
+            /* HSL Theme Colors */
+            --color-purple: 258, 90%, 66%;
+            --color-blue: 217, 91%, 60%;
+            --color-green: 142, 71%, 45%;
+            --color-orange: 32, 95%, 52%;
+            --color-red: 0, 84%, 60%;
+
+            --font-outfit: 'Outfit', 'Inter', sans-serif;
+            --font-inter: 'Inter', sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-base);
+            background-image: 
+                radial-gradient(at 0% 0%, hsla(253,16%,7%,1) 0, transparent 50%),
+                radial-gradient(at 50% 0%, hsla(225,39%,10%,1) 0, transparent 50%),
+                radial-gradient(at 100% 0%, hsla(258,30%,12%,1) 0, transparent 50%);
+            background-attachment: fixed;
+            color: var(--text-primary);
+            font-family: var(--font-inter);
+            min-height: 100vh;
+            overflow-x: hidden;
+            padding: 24px;
+        }
+
+        /* Glassmorphism Common Styles */
+        .glass-panel {
+            background: var(--bg-surface);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--border-glow);
+            border-radius: 16px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        /* Header Styles */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 24px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        header::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(139, 92, 246, 0.3), transparent);
+        }
+
+        .header-title-area h1 {
+            font-family: var(--font-outfit);
+            font-size: 28px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            background: linear-gradient(135deg, #fff 0%, #a78bfa 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .header-title-area p {
+            color: var(--text-secondary);
+            font-size: 14px;
+            margin-top: 4px;
+        }
+
+        .header-stats-quick {
+            display: flex;
+            gap: 24px;
+        }
+
+        .quick-stat-item {
+            text-align: right;
+        }
+
+        .quick-stat-item label {
+            display: block;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+            margin-bottom: 2px;
+        }
+
+        .quick-stat-item span {
+            font-family: var(--font-outfit);
+            font-size: 18px;
+            font-weight: 700;
+            color: #fff;
+        }
+
+        /* Dashboard Grid Layout */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr 420px;
+            gap: 24px;
+        }
+
+        @media (max-width: 1200px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Left Side: Visualizer Map */
+        .map-section {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            padding: 24px;
+        }
+
+        .map-toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .search-container {
+            position: relative;
+            flex: 1;
+            max-width: 400px;
+        }
+
+        .search-input {
+            width: 100%;
+            background: rgba(10, 15, 30, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 12px 16px 12px 42px;
+            border-radius: 30px;
+            color: #fff;
+            font-size: 14px;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        .search-input:focus {
+            border-color: hsla(var(--color-purple), 1);
+            box-shadow: 0 0 15px rgba(139, 92, 246, 0.25);
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-secondary);
+            pointer-events: none;
+        }
+
+        .filter-tags {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            padding-bottom: 4px;
+        }
+
+        .filter-tag {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+        }
+
+        .filter-tag:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+        }
+
+        .filter-tag.active {
+            background: hsla(var(--color-purple), 0.2);
+            border-color: hsla(var(--color-purple), 0.6);
+            color: #fff;
+            box-shadow: 0 0 10px rgba(139, 92, 246, 0.15);
+        }
+
+        .map-wrapper {
+            position: relative;
+            background: rgba(10, 12, 22, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            overflow: hidden;
+            width: 100%;
+            aspect-ratio: 1000 / 600;
+        }
+
+        /* SVG Floor Plan Styling */
+        svg {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .svg-grid-lines {
+            stroke: rgba(255, 255, 255, 0.02);
+            stroke-width: 1;
+        }
+
+        .svg-zone-bg {
+            fill-opacity: 0.03;
+            transition: fill-opacity 0.3s ease;
+        }
+
+        .svg-zone-border {
+            stroke-width: 1.5;
+            stroke-dasharray: 4, 4;
+            fill: none;
+        }
+
+        .svg-zone-label {
+            font-family: var(--font-outfit);
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            pointer-events: none;
+            opacity: 0.8;
+        }
+
+        .svg-rack {
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .svg-rack rect {
+            fill: rgba(31, 41, 55, 0.85);
+            stroke: rgba(255, 255, 255, 0.15);
+            stroke-width: 1.5;
+            rx: 4px;
+            transition: all 0.3s ease;
+        }
+
+        .svg-rack text {
+            font-family: var(--font-inter);
+            font-size: 10px;
+            font-weight: 600;
+            fill: var(--text-secondary);
+            text-anchor: middle;
+            dominant-baseline: middle;
+            pointer-events: none;
+            transition: fill 0.3s ease;
+        }
+
+        /* Rack Status Colors & Glows */
+        .svg-rack:hover rect {
+            fill: rgba(55, 65, 81, 0.95);
+            stroke: #fff;
+            filter: drop-shadow(0px 0px 8px rgba(255, 255, 255, 0.4));
+        }
+
+        .svg-rack.selected rect {
+            stroke-width: 2.5;
+            filter: drop-shadow(0px 0px 10px var(--rack-theme-color));
+            stroke: var(--rack-theme-color) !important;
+        }
+
+        .svg-rack.selected text {
+            fill: #fff;
+            font-weight: 700;
+        }
+
+        /* Non-storage SVG section styles */
+        .svg-non-storage-section {
+            fill: rgba(255, 255, 255, 0.02);
+            stroke: rgba(255, 255, 255, 0.08);
+            stroke-width: 1;
+            rx: 6px;
+        }
+
+        .svg-section-label {
+            font-family: var(--font-inter);
+            font-size: 9px;
+            fill: var(--text-muted);
+            text-anchor: middle;
+            dominant-baseline: middle;
+            pointer-events: none;
+        }
+
+        /* Flashing animation for search matches */
+        @keyframes pulse-highlight {
+            0% { stroke-width: 1.5; filter: drop-shadow(0 0 2px var(--rack-theme-color)); }
+            50% { stroke-width: 3; filter: drop-shadow(0 0 15px var(--rack-theme-color)); }
+            100% { stroke-width: 1.5; filter: drop-shadow(0 0 2px var(--rack-theme-color)); }
+        }
+
+        .svg-rack.search-match rect {
+            animation: pulse-highlight 1.5s infinite;
+            stroke: var(--rack-theme-color) !important;
+        }
+
+        .svg-rack.search-match text {
+            fill: #fff;
+        }
+
+        /* Right Side: Details and Statistics Panel */
+        .details-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .panel-card {
+            padding: 24px;
+        }
+
+        .panel-card h2 {
+            font-family: var(--font-outfit);
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            border-radius: 12px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .stat-card label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .stat-card .value {
+            font-family: var(--font-outfit);
+            font-size: 24px;
+            font-weight: 700;
+            color: #fff;
+            margin-top: auto;
+        }
+
+        .stat-card .desc {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        /* Selected Rack Details Layout */
+        .rack-details-empty {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 0;
+            color: var(--text-muted);
+            text-align: center;
+            font-size: 14px;
+        }
+
+        .rack-details-empty svg {
+            width: 48px;
+            height: 48px;
+            margin-bottom: 12px;
+            stroke: var(--text-muted);
+            fill: none;
+        }
+
+        .rack-info-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 16px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            padding-bottom: 12px;
+        }
+
+        .rack-info-title h3 {
+            font-family: var(--font-outfit);
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .rack-info-title span {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .zone-badge {
+            font-size: 10px;
+            font-weight: 600;
+            padding: 4px 8px;
+            border-radius: 20px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Capacity Progress Bar */
+        .capacity-section {
+            margin-bottom: 20px;
+        }
+
+        .capacity-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+        }
+
+        .progress-bar-bg {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 6px;
+            height: 10px;
+            overflow: hidden;
+            width: 100%;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            border-radius: 6px;
+            transition: width 0.3s ease, background-color 0.3s ease;
+        }
+
+        /* Items List Table */
+        .items-section h4 {
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            margin-bottom: 16px;
+        }
+
+        .items-table th {
+            text-align: left;
+            padding: 8px;
+            color: var(--text-muted);
+            font-weight: 500;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .items-table td {
+            padding: 10px 8px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+            color: var(--text-primary);
+        }
+
+        .items-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .item-sku {
+            font-family: monospace;
+            color: var(--text-secondary);
+        }
+
+        /* Stock Operations Simulation Controls */
+        .simulation-controls {
+            display: flex;
+            gap: 8px;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            padding-top: 16px;
+        }
+
+        .btn {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+            color: #fff;
+            padding: 10px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .btn-primary {
+            background: hsla(var(--color-purple), 0.2);
+            border-color: hsla(var(--color-purple), 0.4);
+        }
+
+        .btn-primary:hover {
+            background: hsla(var(--color-purple), 0.35);
+        }
+
+        /* Temperature control details widget */
+        .temp-widget {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px;
+            background: rgba(16, 185, 129, 0.08);
+            border: 1px solid rgba(16, 185, 129, 0.15);
+            border-radius: 8px;
+            margin-bottom: 16px;
+        }
+
+        .temp-widget-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .temp-widget-info label {
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        .temp-widget-info span {
+            font-family: var(--font-outfit);
+            font-size: 16px;
+            font-weight: 700;
+            color: #10b981;
+        }
+
+        .temp-widget-status {
+            font-size: 11px;
+            font-weight: 600;
+            color: #10b981;
+            background: rgba(16, 185, 129, 0.15);
+            padding: 4px 8px;
+            border-radius: 12px;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="glass-panel">
+            <div class="header-title-area">
+                <h1>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: #a78bfa;"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+                    Smart Inventory Warehouse Dashboard
+                </h1>
+                <p>Interactive floor plan visualizer & live capacity analyzer</p>
+            </div>
+            <div class="header-stats-quick">
+                <div class="quick-stat-item">
+                    <label>Warehouse Status</label>
+                    <span style="color: #10b981; display: flex; align-items: center; gap: 6px;">
+                        <span style="display:inline-block; width:8px; height:8px; background:#10b981; border-radius:50%; animation: pulse-highlight 1.5s infinite; --rack-theme-color:#10b981;"></span>
+                        Online
+                    </span>
+                </div>
+                <div class="quick-stat-item">
+                    <label>Live Timestamp</label>
+                    <span id="live-time">-</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Dashboard Contents Grid -->
+        <div class="dashboard-grid">
+            <!-- Left Panel: SVG Floor Plan visualizer -->
+            <section class="glass-panel map-section">
+                <div class="map-toolbar">
+                    <div class="search-container">
+                        <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                        <input type="text" id="search-bar" class="search-input" placeholder="Search product or SKU... (e.g. iPhone)">
+                    </div>
+                    <div class="filter-tags" id="category-filters">
+                        <button class="filter-tag active" data-category="all">All Items</button>
+                        <button class="filter-tag" data-category="Electronics">Electronics</button>
+                        <button class="filter-tag" data-category="Apparel">Apparel</button>
+                        <button class="filter-tag" data-category="Dairy">Dairy</button>
+                        <button class="filter-tag" data-category="Accessories">Accessories</button>
+                    </div>
+                </div>
+
+                <div class="map-wrapper">
+                    <!-- SVG Map -->
+                    <svg id="warehouse-map" viewBox="0 0 1000 600" preserveAspectRatio="xMidYMid meet">
+                        <!-- Grid lines pattern overlay for tech blueprint aesthetic -->
+                        <defs>
+                            <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+                                <rect width="20" height="20" fill="none"></rect>
+                                <path d="M 20 0 L 0 0 0 20" fill="none" class="svg-grid-lines"></path>
+                            </pattern>
+                        </defs>
+                        <rect width="100%" height="100%" fill="url(#grid)"></rect>
+
+                        <!-- Dynamic Zones & Racks rendered here -->
+                        <g id="zones-layer"></g>
+                        <g id="sections-layer"></g>
+                        <g id="racks-layer"></g>
+                    </svg>
+                </div>
+            </section>
+
+            <!-- Right Panel: Side Controls and Details -->
+            <section class="details-panel">
+                <!-- Analytics Card -->
+                <div class="glass-panel panel-card">
+                    <h2>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: #60a5fa;"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+                        Warehouse Analytics
+                    </h2>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <label>Space Utilization</label>
+                            <span class="value" id="stat-utilization">0%</span>
+                            <span class="desc" id="stat-utilization-desc">Total capacity usage</span>
+                        </div>
+                        <div class="stat-card">
+                            <label>Total Item Count</label>
+                            <span class="value" id="stat-items">0</span>
+                            <span class="desc">Across all zones</span>
+                        </div>
+                        <div class="stat-card">
+                            <label>Cold Room Temp</label>
+                            <span class="value" style="color:#10b981;" id="stat-temp">4.2°C</span>
+                            <span class="desc">Normal range (2.0 - 5.0)</span>
+                        </div>
+                        <div class="stat-card">
+                            <label>Active Racks</label>
+                            <span class="value" id="stat-active-racks">0/0</span>
+                            <span class="desc">Racks storing stock</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Selected Rack Detail Card -->
+                <div class="glass-panel panel-card" style="flex: 1; display: flex; flex-direction: column;">
+                    <h2>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: #a78bfa;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+                        Stock Information
+                    </h2>
+                    <div id="rack-details-container" style="flex: 1; display: flex; flex-direction: column;">
+                        <!-- Rendered dynamically -->
+                        <div class="rack-details-empty">
+                            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                <line x1="9" y1="3" x2="9" y2="21"></line>
+                                <line x1="15" y1="3" x2="15" y2="21"></line>
+                                <line x1="3" y1="9" x2="21" y2="9"></line>
+                                <line x1="3" y1="15" x2="21" y2="15"></line>
+                            </svg>
+                            Select a rack on the floor plan to inspect stock details
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <!-- Script holding layout data and control logic -->
+    <script>
+        // Database parsed from sketch.md equivalent JSON
+        const database = {
+            "name": "Smart Inventory Warehouse A",
+            "width": 1000,
+            "height": 600,
+            "zones": [
+                {
+                    "id": "zone_a",
+                    "name": "Zone A: Electronics & High-Value",
+                    "color": "rgba(139, 92, 246, 0.08)",
+                    "borderColor": "#8b5cf6",
+                    "rect": { "x": 50, "y": 50, "w": 400, "h": 200 },
+                    "racks": [
+                        {
+                            "id": "rack_a1",
+                            "name": "Rack A1",
+                            "rect": { "x": 70, "y": 70, "w": 60, "h": 40 },
+                            "capacity": 100,
+                            "items": [
+                                { "name": "iPhone 15 Pro", "sku": "IPH15P", "quantity": 45, "category": "Electronics" },
+                                { "name": "iPad Pro M4", "sku": "IPDPM4", "quantity": 20, "category": "Electronics" }
+                            ]
+                        },
+                        {
+                            "id": "rack_a2",
+                            "name": "Rack A2",
+                            "rect": { "x": 160, "y": 70, "w": 60, "h": 40 },
+                            "capacity": 100,
+                            "items": [
+                                { "name": "MacBook Pro 16", "sku": "MBP16", "quantity": 15, "category": "Electronics" },
+                                { "name": "Mac Studio", "sku": "MCSTD", "quantity": 8, "category": "Electronics" }
+                            ]
+                        },
+                        {
+                            "id": "rack_a3",
+                            "name": "Rack A3",
+                            "rect": { "x": 250, "y": 70, "w": 60, "h": 40 },
+                            "capacity": 100,
+                            "items": [
+                                { "name": "Sony WH-1000XM5", "sku": "SNYXM5", "quantity": 50, "category": "Audio" }
+                            ]
+                        },
+                        {
+                            "id": "rack_a4",
+                            "name": "Rack A4",
+                            "rect": { "x": 340, "y": 70, "w": 60, "h": 40 },
+                            "capacity": 100,
+                            "items": [
+                                { "name": "Keychron Q1 Pro", "sku": "KYCQ1", "quantity": 30, "category": "Peripherals" },
+                                { "name": "MX Master 3S", "sku": "MXM3S", "quantity": 60, "category": "Peripherals" }
+                            ]
+                        },
+                        {
+                            "id": "rack_a5",
+                            "name": "Rack A5",
+                            "rect": { "x": 70, "y": 140, "w": 60, "h": 40 },
+                            "capacity": 100,
+                            "items": [
+                                { "name": "Dell U2723QE", "sku": "DLL27", "quantity": 12, "category": "Monitors" }
+                            ]
+                        },
+                        {
+                            "id": "rack_a6",
+                            "name": "Rack A6",
+                            "rect": { "x": 160, "y": 140, "w": 60, "h": 40 },
+                            "capacity": 100,
+                            "items": [
+                                { "name": "LG C3 OLED 42", "sku": "LGC342", "quantity": 10, "category": "Monitors" }
+                            ]
+                        },
+                        {
+                            "id": "rack_a7",
+                            "name": "Rack A7",
+                            "rect": { "x": 250, "y": 140, "w": 60, "h": 40 },
+                            "capacity": 100,
+                            "items": [
+                                { "name": "PlayStation 5", "sku": "PS5DISC", "quantity": 35, "category": "Gaming" }
+                            ]
+                        },
+                        {
+                            "id": "rack_a8",
+                            "name": "Rack A8",
+                            "rect": { "x": 340, "y": 140, "w": 60, "h": 40 },
+                            "capacity": 100,
+                            "items": [
+                                { "name": "Nintendo Switch OLED", "sku": "NSOLED", "quantity": 40, "category": "Gaming" },
+                                { "name": "Switch Pro Controller", "sku": "NSPRO", "quantity": 50, "category": "Gaming" }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "zone_b",
+                    "name": "Zone B: Apparel & General Goods",
+                    "color": "rgba(59, 130, 246, 0.08)",
+                    "borderColor": "#3b82f6",
+                    "rect": { "x": 500, "y": 50, "w": 450, "h": 200 },
+                    "racks": [
+                        {
+                            "id": "rack_b1",
+                            "name": "Rack B1",
+                            "rect": { "x": 520, "y": 70, "w": 70, "h": 40 },
+                            "capacity": 150,
+                            "items": [
+                                { "name": "Essential Hoodie Black", "sku": "HD-BLK", "quantity": 120, "category": "Apparel" }
+                            ]
+                        },
+                        {
+                            "id": "rack_b2",
+                            "name": "Rack B2",
+                            "rect": { "x": 610, "y": 70, "w": 70, "h": 40 },
+                            "capacity": 150,
+                            "items": [
+                                { "name": "Classic T-Shirt White", "sku": "TS-WHT", "quantity": 140, "category": "Apparel" }
+                            ]
+                        },
+                        {
+                            "id": "rack_b3",
+                            "name": "Rack B3",
+                            "rect": { "x": 700, "y": 70, "w": 70, "h": 40 },
+                            "capacity": 150,
+                            "items": [
+                                { "name": "Denim Jacket Blue", "sku": "JKT-DEN", "quantity": 45, "category": "Apparel" }
+                            ]
+                        },
+                        {
+                            "id": "rack_b4",
+                            "name": "Rack B4",
+                            "rect": { "x": 790, "y": 70, "w": 70, "h": 40 },
+                            "capacity": 150,
+                            "items": [
+                                { "name": "Running Shoes Red", "sku": "SH-RED", "quantity": 60, "category": "Apparel" }
+                            ]
+                        },
+                        {
+                            "id": "rack_b5",
+                            "name": "Rack B5",
+                            "rect": { "x": 880, "y": 70, "w": 50, "h": 40 },
+                            "capacity": 100,
+                            "items": [
+                                { "name": "Ergonomic Desk Chair", "sku": "CHR-ERG", "quantity": 18, "category": "Furniture" }
+                            ]
+                        },
+                        {
+                            "id": "rack_b6",
+                            "name": "Rack B6",
+                            "rect": { "x": 520, "y": 140, "w": 70, "h": 40 },
+                            "capacity": 150,
+                            "items": [
+                                { "name": "Backpack Waterproof", "sku": "BP-WTR", "quantity": 95, "category": "Accessories" }
+                            ]
+                        },
+                        {
+                            "id": "rack_b7",
+                            "name": "Rack B7",
+                            "rect": { "x": 610, "y": 140, "w": 70, "h": 40 },
+                            "capacity": 150,
+                            "items": [
+                                { "name": "Leather Wallet Brown", "sku": "WL-BRW", "quantity": 110, "category": "Accessories" }
+                            ]
+                        },
+                        {
+                            "id": "rack_b8",
+                            "name": "Rack B8",
+                            "rect": { "x": 700, "y": 140, "w": 70, "h": 40 },
+                            "capacity": 150,
+                            "items": [
+                                { "name": "Stainless Water Bottle", "sku": "BT-SST", "quantity": 130, "category": "Goods" }
+                            ]
+                        },
+                        {
+                            "id": "rack_b9",
+                            "name": "Rack B9",
+                            "rect": { "x": 790, "y": 140, "w": 70, "h": 40 },
+                            "capacity": 150,
+                            "items": [
+                                { "name": "Smart LED Bulb", "sku": "BLB-LED", "quantity": 145, "category": "Goods" }
+                            ]
+                        },
+                        {
+                            "id": "rack_b10",
+                            "name": "Rack B10",
+                            "rect": { "x": 880, "y": 140, "w": 50, "h": 40 },
+                            "capacity": 100,
+                            "items": [
+                                { "name": "Wireless Charging Pad", "sku": "CHG-WRL", "quantity": 80, "category": "Electronics" }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "zone_c",
+                    "name": "Zone C: Cold Storage (Perishables)",
+                    "color": "rgba(16, 185, 129, 0.08)",
+                    "borderColor": "#10b981",
+                    "rect": { "x": 50, "y": 300, "w": 280, "h": 250 },
+                    "tempControl": true,
+                    "currentTemp": 4.2,
+                    "targetTemp": 4.0,
+                    "racks": [
+                        {
+                            "id": "rack_c1",
+                            "name": "Rack C1",
+                            "rect": { "x": 70, "y": 340, "w": 65, "h": 50 },
+                            "capacity": 80,
+                            "items": [
+                                { "name": "Fresh Milk 1L", "sku": "MLK-1L", "quantity": 72, "category": "Dairy" }
+                            ]
+                        },
+                        {
+                            "id": "rack_c2",
+                            "name": "Rack C2",
+                            "rect": { "x": 150, "y": 340, "w": 65, "h": 50 },
+                            "capacity": 80,
+                            "items": [
+                                { "name": "Greek Yogurt Blueberries", "sku": "YGT-BLU", "quantity": 55, "category": "Dairy" }
+                            ]
+                        },
+                        {
+                            "id": "rack_c3",
+                            "name": "Rack C3",
+                            "rect": { "x": 230, "y": 340, "w": 80, "h": 50 },
+                            "capacity": 80,
+                            "items": [
+                                { "name": "Premium Butter 250g", "sku": "BTR-250", "quantity": 68, "category": "Dairy" }
+                            ]
+                        },
+                        {
+                            "id": "rack_c4",
+                            "name": "Rack C4",
+                            "rect": { "x": 70, "y": 420, "w": 110, "h": 50 },
+                            "capacity": 100,
+                            "items": [
+                                { "name": "Organic Eggs 12pk", "sku": "EGG-12", "quantity": 85, "category": "Dairy" }
+                            ]
+                        },
+                        {
+                            "id": "rack_c5",
+                            "name": "Rack C5",
+                            "rect": { "x": 200, "y": 420, "w": 110, "h": 50 },
+                            "capacity": 100,
+                            "items": [
+                                { "name": "Fresh Orange Juice 2L", "sku": "OJ-2L", "quantity": 40, "category": "Beverage" }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "zone_d",
+                    "name": "Zone D: Receiving & Packing Area",
+                    "color": "rgba(245, 158, 11, 0.08)",
+                    "borderColor": "#f59e0b",
+                    "rect": { "x": 370, "y": 300, "w": 580, "h": 250 },
+                    "nonStorage": true,
+                    "sections": [
+                        { "name": "Loading Dock 1", "rect": { "x": 390, "y": 320, "w": 100, "h": 60 } },
+                        { "name": "Loading Dock 2", "rect": { "x": 510, "y": 320, "w": 100, "h": 60 } },
+                        { "name": "Packing Station A", "rect": { "x": 650, "y": 430, "w": 80, "h": 50 } },
+                        { "name": "Packing Station B", "rect": { "x": 750, "y": 430, "w": 80, "h": 50 } },
+                        { "name": "Shipping Staging", "rect": { "x": 860, "y": 320, "w": 70, "h": 120 } }
+                    ]
+                }
+            ]
+        };
+
+        // App state
+        let selectedRackId = null;
+        let searchQuery = "";
+        let selectedCategory = "all";
+
+        // DOM Elements
+        const zonesLayer = document.getElementById("zones-layer");
+        const sectionsLayer = document.getElementById("sections-layer");
+        const racksLayer = document.getElementById("racks-layer");
+        const detailsContainer = document.getElementById("rack-details-container");
+        const searchBar = document.getElementById("search-bar");
+        const categoryFilters = document.getElementById("category-filters");
+        
+        // Stats Elements
+        const statUtilization = document.getElementById("stat-utilization");
+        const statItems = document.getElementById("stat-items");
+        const statActiveRacks = document.getElementById("stat-active-racks");
+        const statTemp = document.getElementById("stat-temp");
+
+        // Initialization
+        window.addEventListener("DOMContentLoaded", () => {
+            renderMap();
+            updateAnalytics();
+            updateLiveTime();
+            setInterval(updateLiveTime, 1000);
+            
+            // Search Input listener
+            searchBar.addEventListener("input", (e) => {
+                searchQuery = e.target.value.toLowerCase().trim();
+                applyFilterAndSearch();
+            });
+
+            // Filter Buttons listener
+            categoryFilters.addEventListener("click", (e) => {
+                if (e.target.classList.contains("filter-tag")) {
+                    document.querySelectorAll(".filter-tag").forEach(el => el.classList.remove("active"));
+                    e.target.classList.add("active");
+                    selectedCategory = e.target.getAttribute("data-category");
+                    applyFilterAndSearch();
+                }
+            });
+        });
+
+        // Live Clock Updates
+        function updateLiveTime() {
+            const now = new Date();
+            const format = now.getFullYear() + '-' + 
+                           String(now.getMonth()+1).padStart(2, '0') + '-' + 
+                           String(now.getDate()).padStart(2, '0') + ' ' + 
+                           String(now.getHours()).padStart(2, '0') + ':' + 
+                           String(now.getMinutes()).padStart(2, '0') + ':' + 
+                           String(now.getSeconds()).padStart(2, '0');
+            document.getElementById("live-time").textContent = format;
+
+            // Simulate slight temperature fluctuations for Zone C
+            if (Math.random() > 0.8) {
+                const zoneC = database.zones.find(z => z.id === "zone_c");
+                if (zoneC) {
+                    const diff = (Math.random() - 0.5) * 0.2;
+                    zoneC.currentTemp = parseFloat((zoneC.currentTemp + diff).toFixed(2));
+                    // Clamp between 3.5 and 4.8
+                    if (zoneC.currentTemp < 3.5) zoneC.currentTemp = 3.5;
+                    if (zoneC.currentTemp > 4.8) zoneC.currentTemp = 4.8;
+                    
+                    statTemp.textContent = zoneC.currentTemp.toFixed(1) + "°C";
+                    const tempEl = document.getElementById("live-temp-val");
+                    if (tempEl) tempEl.textContent = zoneC.currentTemp.toFixed(1) + "°C";
+                }
+            }
+        }
+
+        // Render Zones, Sections, and Racks on SVG Map
+        function renderMap() {
+            zonesLayer.innerHTML = "";
+            sectionsLayer.innerHTML = "";
+            racksLayer.innerHTML = "";
+
+            database.zones.forEach(zone => {
+                // Render Zone bounding box
+                const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+                rect.setAttribute("x", zone.rect.x);
+                rect.setAttribute("y", zone.rect.y);
+                rect.setAttribute("width", zone.rect.w);
+                rect.setAttribute("height", zone.rect.h);
+                rect.setAttribute("class", "svg-zone-bg");
+                rect.setAttribute("fill", zone.color);
+                zonesLayer.appendChild(rect);
+
+                // Render Zone dashed border
+                const border = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+                border.setAttribute("x", zone.rect.x);
+                border.setAttribute("y", zone.rect.y);
+                border.setAttribute("width", zone.rect.w);
+                border.setAttribute("height", zone.rect.h);
+                border.setAttribute("class", "svg-zone-border");
+                border.setAttribute("stroke", zone.borderColor);
+                zonesLayer.appendChild(border);
+
+                // Render Zone Label
+                const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                label.setAttribute("x", zone.rect.x + 12);
+                label.setAttribute("y", zone.rect.y + 20);
+                label.setAttribute("class", "svg-zone-label");
+                label.setAttribute("fill", zone.borderColor);
+                label.textContent = zone.name;
+                zonesLayer.appendChild(label);
+
+                // Render Racks inside Zone
+                if (zone.racks) {
+                    zone.racks.forEach(rack => {
+                        const rackGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
+                        rackGroup.setAttribute("class", "svg-rack");
+                        rackGroup.setAttribute("id", `svg-${rack.id}`);
+                        rackGroup.style.setProperty("--rack-theme-color", zone.borderColor);
+                        
+                        // Rack rectangle shape
+                        const rackRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+                        rackRect.setAttribute("x", rack.rect.x);
+                        rackRect.setAttribute("y", rack.rect.y);
+                        rackRect.setAttribute("width", rack.rect.w);
+                        rackRect.setAttribute("height", rack.rect.h);
+                        
+                        // Calculate utilization for visual styling (higher capacity = darker/different border)
+                        const stockSum = rack.items.reduce((sum, item) => sum + item.quantity, 0);
+                        const utilization = stockSum / rack.capacity;
+                        
+                        if (utilization > 0.9) {
+                            // Overloaded/Full alert style
+                            rackRect.setAttribute("stroke", "#ef4444"); 
+                        } else if (stockSum > 0) {
+                            rackRect.setAttribute("stroke", zone.borderColor);
+                        } else {
+                            // Empty rack
+                            rackRect.setAttribute("stroke", "rgba(255, 255, 255, 0.2)");
+                        }
+                        
+                        // Add opacity based on fullness
+                        rackRect.setAttribute("fill-opacity", 0.3 + (utilization * 0.6));
+
+                        // Rack label inside
+                        const rackText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                        rackText.setAttribute("x", rack.rect.x + (rack.rect.w / 2));
+                        rackText.setAttribute("y", rack.rect.y + (rack.rect.h / 2));
+                        rackText.textContent = rack.name;
+
+                        rackGroup.appendChild(rackRect);
+                        rackGroup.appendChild(rackText);
+
+                        // Click handler to display stock details
+                        rackGroup.addEventListener("click", () => {
+                            selectRack(rack.id, zone.id);
+                        });
+
+                        racksLayer.appendChild(rackGroup);
+                    });
+                }
+
+                // Render Non-Storage Area sections (Loading docks, packing stations, etc.)
+                if (zone.sections) {
+                    zone.sections.forEach(sec => {
+                        const secRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+                        secRect.setAttribute("x", sec.rect.x);
+                        secRect.setAttribute("y", sec.rect.y);
+                        secRect.setAttribute("width", sec.rect.w);
+                        secRect.setAttribute("height", sec.rect.h);
+                        secRect.setAttribute("class", "svg-non-storage-section");
+                        sectionsLayer.appendChild(secRect);
+
+                        const secText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                        secText.setAttribute("x", sec.rect.x + (sec.rect.w / 2));
+                        secText.setAttribute("y", sec.rect.y + (sec.rect.h / 2));
+                        secText.setAttribute("class", "svg-section-label");
+                        secText.textContent = sec.name;
+                        sectionsLayer.appendChild(secText);
+                    });
+                }
+            });
+        }
+
+        // Handle Rack Selection and UI highlights
+        function selectRack(rackId, zoneId) {
+            selectedRackId = rackId;
+            
+            // Remove previous selections
+            document.querySelectorAll(".svg-rack").forEach(el => el.classList.remove("selected"));
+            
+            // Highlight current selection
+            const el = document.getElementById(`svg-${rackId}`);
+            if (el) el.classList.add("selected");
+
+            const zone = database.zones.find(z => z.id === zoneId);
+            const rack = zone.racks.find(r => r.id === rackId);
+
+            // Compute statistics
+            const totalStock = rack.items.reduce((sum, item) => sum + item.quantity, 0);
+            const utilizationPct = Math.round((totalStock / rack.capacity) * 100);
+            
+            // Determine progress bar color based on utilization
+            let barColor = "#8b5cf6"; // Purple
+            if (zone.id === "zone_b") barColor = "#3b82f6"; // Blue
+            if (zone.id === "zone_c") barColor = "#10b981"; // Green
+            if (utilizationPct > 90) barColor = "#ef4444"; // Red alarm
+
+            let temperatureWidgetHtml = "";
+            if (zone.tempControl) {
+                temperatureWidgetHtml = `
+                    <div class="temp-widget">
+                        <div class="temp-widget-info">
+                            <label>Rack Temperature</label>
+                            <span id="live-temp-val">${zone.currentTemp.toFixed(1)}°C</span>
+                        </div>
+                        <div class="temp-widget-status">Target: ${zone.targetTemp.toFixed(1)}°C</div>
+                    </div>
+                `;
+            }
+
+            // Generate items table rows
+            let itemsRows = "";
+            if (rack.items.length === 0) {
+                itemsRows = `<tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 20px;">No items stored here</td></tr>`;
+            } else {
+                rack.items.forEach((item, index) => {
+                    itemsRows += `
+                        <tr>
+                            <td>${item.name}</td>
+                            <td><span class="item-sku">${item.sku}</span></td>
+                            <td style="font-weight: 600; text-align: right;">${item.quantity} ea</td>
+                            <td style="text-align: right; color: var(--text-muted);">${item.category}</td>
+                        </tr>
+                    `;
+                });
+            }
+
+            // Update details sidebar card HTML
+            detailsContainer.innerHTML = `
+                <div class="rack-info-header">
+                    <div class="rack-info-title">
+                        <h3>${rack.name}</h3>
+                        <span>Zone ID: ${zone.id.toUpperCase()}</span>
+                    </div>
+                    <span class="zone-badge" style="background: ${zone.borderColor}20; color: ${zone.borderColor}; border: 1px solid ${zone.borderColor}40;">
+                        ${zone.name.split(':')[0]}
+                    </span>
+                </div>
+
+                ${temperatureWidgetHtml}
+
+                <div class="capacity-section">
+                    <div class="capacity-labels">
+                        <span>Storage Utilization</span>
+                        <span style="font-weight: 600; color: #fff;">${totalStock} / ${rack.capacity} ea (${utilizationPct}%)</span>
+                    </div>
+                    <div class="progress-bar-bg">
+                        <div class="progress-bar-fill" style="width: ${Math.min(utilizationPct, 100)}%; background-color: ${barColor};"></div>
+                    </div>
+                </div>
+
+                <div class="items-section" style="flex: 1; overflow-y: auto;">
+                    <h4>Stored Products</h4>
+                    <table class="items-table">
+                        <thead>
+                            <tr>
+                                <th>Product</th>
+                                <th>SKU</th>
+                                <th style="text-align: right;">Qty</th>
+                                <th style="text-align: right;">Category</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${itemsRows}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Simulation Controls for interactive WOW effect -->
+                <div class="simulation-controls">
+                    <button class="btn btn-primary" onclick="simulateStockChange('${rack.id}', 10)">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        Stock In (+10)
+                    </button>
+                    <button class="btn" onclick="simulateStockChange('${rack.id}', -10)">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        Stock Out (-10)
+                    </button>
+                </div>
+            `;
+        }
+
+        // Live stock addition / subtraction simulation
+        window.simulateStockChange = function(rackId, delta) {
+            let foundZone = null;
+            let foundRack = null;
+
+            for (let z of database.zones) {
+                if (z.racks) {
+                    let r = z.racks.find(rack => rack.id === rackId);
+                    if (r) {
+                        foundZone = z;
+                        foundRack = r;
+                        break;
+                    }
+                }
+            }
+
+            if (!foundRack) return;
+
+            const totalCurrent = foundRack.items.reduce((sum, item) => sum + item.quantity, 0);
+
+            // If decreasing stock
+            if (delta < 0) {
+                if (totalCurrent === 0) return;
+                let decreaseAmount = Math.abs(delta);
+                // Distribute deduction across items
+                for (let item of foundRack.items) {
+                    if (item.quantity >= decreaseAmount) {
+                        item.quantity -= decreaseAmount;
+                        decreaseAmount = 0;
+                        break;
+                    } else {
+                        decreaseAmount -= item.quantity;
+                        item.quantity = 0;
+                    }
+                }
+                // Filter out zero-qty items
+                foundRack.items = foundRack.items.filter(item => item.quantity > 0);
+            } 
+            // If increasing stock (adds to the first item, or creates a generic placeholder item if empty)
+            else {
+                if (totalCurrent + delta > foundRack.capacity) {
+                    alert("Error: Rack storage capacity exceeded!");
+                    return;
+                }
+                if (foundRack.items.length > 0) {
+                    foundRack.items[0].quantity += delta;
+                } else {
+                    foundRack.items.push({
+                        "name": "Restocked Inventory Item",
+                        "sku": "SKU-GEN",
+                        "quantity": delta,
+                        "category": foundZone.id === "zone_a" ? "Electronics" : (foundZone.id === "zone_b" ? "Apparel" : "Dairy")
+                    });
+                }
+            }
+
+            // Rerender Map, Sidebar details, and global calculations
+            renderMap();
+            selectRack(rackId, foundZone.id);
+            updateAnalytics();
+            applyFilterAndSearch();
+        }
+
+        // Search & Filter Match Logic
+        function applyFilterAndSearch() {
+            database.zones.forEach(zone => {
+                if (!zone.racks) return;
+                zone.racks.forEach(rack => {
+                    const group = document.getElementById(`svg-${rack.id}`);
+                    if (!group) return;
+
+                    // Check if category matches
+                    let catMatches = false;
+                    if (selectedCategory === "all") {
+                        catMatches = true;
+                    } else {
+                        catMatches = rack.items.some(item => item.category === selectedCategory);
+                    }
+
+                    // Check if search matches product name, SKU, or rack name
+                    let searchMatches = false;
+                    if (searchQuery === "") {
+                        searchMatches = false; // Don't highlight all if search is empty
+                    } else {
+                        const inRackName = rack.name.toLowerCase().includes(searchQuery);
+                        const inItems = rack.items.some(item => 
+                            item.name.toLowerCase().includes(searchQuery) || 
+                            item.sku.toLowerCase().includes(searchQuery)
+                        );
+                        searchMatches = inRackName || inItems;
+                    }
+
+                    // Reset highlight
+                    group.classList.remove("search-match");
+
+                    // Apply visual states
+                    if (searchQuery !== "") {
+                        if (searchMatches && catMatches) {
+                            group.classList.add("search-match");
+                            group.style.opacity = "1";
+                        } else {
+                            group.style.opacity = "0.2"; // Dim irrelevant racks
+                        }
+                    } else {
+                        // If search is empty, style purely based on category filter
+                        if (catMatches) {
+                            group.style.opacity = "1";
+                        } else {
+                            group.style.opacity = "0.15"; // Dim if category doesn't match
+                        }
+                    }
+                });
+            });
+        }
+
+        // Compute and update statistics on dashboard cards
+        function updateAnalytics() {
+            let totalCapacity = 0;
+            let totalStock = 0;
+            let activeRacks = 0;
+            let totalRacks = 0;
+
+            database.zones.forEach(zone => {
+                if (zone.racks) {
+                    zone.racks.forEach(rack => {
+                        totalRacks++;
+                        totalCapacity += rack.capacity;
+                        const rackStock = rack.items.reduce((sum, item) => sum + item.quantity, 0);
+                        totalStock += rackStock;
+                        if (rackStock > 0) {
+                            activeRacks++;
+                        }
+                    });
+                }
+            });
+
+            const utilizationRatio = totalCapacity > 0 ? (totalStock / totalCapacity) : 0;
+            const utilizationPercent = Math.round(utilizationRatio * 100);
+
+            // Animate utilization count
+            statUtilization.textContent = utilizationPercent + "%";
+            statItems.textContent = totalStock.toLocaleString() + " ea";
+            statActiveRacks.textContent = activeRacks + " / " + totalRacks;
+
+            // Simple color gradient based on total usage
+            if (utilizationPercent > 85) {
+                statUtilization.style.color = "#ef4444"; // high usage warning
+                document.getElementById("stat-utilization-desc").innerHTML = `<span style="color:#ef4444;">Critical: Low storage remaining</span>`;
+            } else {
+                statUtilization.style.color = "#a78bfa"; // normal purple accent
+                document.getElementById("stat-utilization-desc").innerHTML = "Total capacity usage";
+            }
+        }
+    </script>
+</body>
+</html>

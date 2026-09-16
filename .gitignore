@@ -1,0 +1,27 @@
+# Streamlit secrets and runtime files
+.streamlit/secrets.toml
+
+# Local database & state
+shared_state.json
+
+# Excel and data files containing sensitive personal information
+*.xlsx
+*.xls
+*.csv
+
+# Python virtual environment & caches
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# OS generated files
+Thumbs.db
+[Dd]esktop.ini
+.DS_Store
+
+# Temporary & Log files
+*.log
+scratch/
+temp/
