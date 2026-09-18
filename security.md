@@ -6,11 +6,11 @@
 
 ## 1. 🤖 최신 AI 및 Agentic 애플리케이션 보안 원칙 (OWASP 2026)
 
-### A. OWASP GenAI LLM Top 10 (2026 핵심)
-1. **프롬프트 인젝션 방지 (Prompt Injection - #1)**: 사용자 입력 및 외부 파일(엑셀, 텍스트)에서 유입되는 신뢰할 수 없는 데이터가 AI의 프롬프트나 처리 로직을 변조하지 못하도록 엄격히 검증·격리합니다.
+### A. OWASP GenAI LLM Top 10 (2026 핵심 및 8월 공식 릴리즈 반영)
+1. **프롬프트 인젝션 방지 (Prompt Injection - #1)**: 텍스트뿐만 아니라 오디오/이미지 등 교차 모달(Cross-modal) 공격을 포함하여, 외부에서 유입되는 신뢰할 수 없는 데이터가 프롬프트를 변조하지 못하도록 합니다. 프롬프트 인젝션은 완벽한 필터링이 어려우므로 LLM을 **Zero-Trust 컴포넌트**로 취급하고 시스템 수준의 격리 방어를 적용합니다.
 2. **민감 정보 노출 방지 (Sensitive Information Disclosure - #2)**: 주민등록번호, 연락처, 기부 내역 및 내부 API Key가 모델의 응답이나 공개 로그, 브라우저 화면에 불필요하게 노출되지 않도록 마스킹 처리합니다.
-3. **과도한 권한 제어 (Excessive Agency / Least-Agency - #3)**: 자율 에이전트의 권한이 2026년 주요 보안 위협 3위로 급부상함에 따라, 파일 삭제·원격 Push·시스템 설정 변경 등 파괴적인 작업은 절대 자율 실행하지 않고 **Human-in-the-Loop(사용자 명시적 승인)**을 필수로 거칩니다.
-4. **숨겨진 컨텍스트 보호 (Hidden Context Exposure)**: 내부 프롬프트 지침이나 백엔드 환경 설정 정보가 외부 뷰어/사용자 인터페이스로 유출되지 않도록 제어합니다.
+3. **과도한 권한 제어 (Excessive Agency / Least-Agency - #3)**: 자율 에이전트의 도구 접근 권한 오용이 주요 위협이므로 최소 권한 원칙을 적용하며, 파괴적인 작업(DB/파일 변경 등)은 반드시 **Human-in-the-Loop(사용자 명시적 승인)**을 거칩니다.
+4. **숨겨진 컨텍스트 보호 (Hidden Context Exposure - #8)**: 내부 프롬프트 지침이나 백엔드 환경 설정 정보가 외부 뷰어/사용자 인터페이스로 유출되지 않도록 제어합니다.
 
 ### B. OWASP Agentic Applications 10대 보안 위험 (ASI01 ~ ASI10)
 - **ASI01: Agent Goal Hijack**: 비정상적 입력으로 인해 에이전트의 원래 작업 목표가 왜곡되거나 탈취되는 현상 방어.
@@ -69,6 +69,9 @@
 - **접근 제어 및 권한 검증 강화**: `취약한 접근 제어(Broken Access Control)` 방지를 위해, CRUD 함수 호출 시 반드시 `st.session_state` 기반 권한(Role)을 재검증합니다.
 - **민감 정보(Secrets) 절대 보호**: Firebase API 키 등 민감 정보는 절대 하드코딩하거나 터미널에 출력하지 않으며, 오직 `st.secrets` (`.streamlit/secrets.toml`)를 통해서만 참조합니다.
 - **상태 데이터 직렬화(Serialization) 주의**: `st.cache_data`와 `st.session_state`는 내부적으로 `pickle`을 사용하므로, 외부에서 직접 주입된 신뢰할 수 없는 바이트 스트림을 역직렬화하지 않도록 통제합니다.
+- **Streamlit 최신 취약점 방어 (2026 업데이트)**:
+  - **위젯 상태 페이로드 제한**: 클라이언트가 제공하는 쿼리 문자열과 위젯 상태 페이로드 크기를 제한하여 무제한 리소스 할당을 방지합니다 (예: `server.maxWidgetStateSize` 25MB 이하 제한 권장).
+  - **SSRF 및 약한 해시 알고리즘 방어**: 최신 버전(1.59.0 이상)으로 유지하여 CVE-2026-10804(약한 해시), CVE-2026-33682(Windows SSRF) 등의 취약점을 방어하고, child iframes나 주입된 스크립트로부터의 메시지를 차단하는 origin spoofing 방어 설정을 유지합니다.
 
 ---
 

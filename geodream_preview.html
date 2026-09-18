@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>그냥드림 — 은평구 이용자 분포 대시보드 (미리보기)</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg-deep: #0d1710;
+    --bg-panel: #141f10;
+    --bg-card: #1a2a15;
+    --border: rgba(160, 210, 120, 0.18);
+    --border-bright: rgba(160, 210, 120, 0.45);
+    --accent-green: #7ec850;
+    --accent-amber: #f59e0b;
+    --accent-cyan: #22d3ee;
+    --text-primary: #e8f5e2;
+    --text-secondary: #8aad78;
+    --text-muted: #4a6b3a;
+  }
+  body {
+    font-family: 'Noto Sans KR', sans-serif;
+    background: var(--bg-deep);
+    color: var(--text-primary);
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 28px; background: var(--bg-panel);
+    border-bottom: 1px solid var(--border); flex-shrink: 0;
+  }
+  .logo { display: flex; align-items: center; gap: 10px; }
+  .logo-icon {
+    width: 34px; height: 34px; border-radius: 8px;
+    background: linear-gradient(135deg, #7ec850, #22d3ee);
+    display: flex; align-items: center; justify-content: center; font-size: 18px;
+  }
+  .logo-text { font-size: 18px; font-weight: 700; }
+  .logo-sub { font-size: 11px; color: var(--text-secondary); margin-top: 1px; }
+  .header-badges { display: flex; gap: 8px; }
+  .badge {
+    padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 500;
+    background: rgba(126, 200, 80, 0.12); border: 1px solid rgba(126, 200, 80, 0.3);
+    color: var(--accent-green);
+  }
+  .badge.cyan { background: rgba(34,211,238,0.12); border-color: rgba(34,211,238,0.3); color: var(--accent-cyan); }
+  .edit-toggle {
+    display: flex; align-items: center; gap: 8px; padding: 6px 16px;
+    border-radius: 8px; border: 1px solid var(--border-bright);
+    background: transparent; color: var(--text-secondary);
+    font-family: inherit; font-size: 13px; cursor: pointer; transition: all .2s;
+  }
+  .edit-toggle:hover, .edit-toggle.on {
+    background: rgba(126,200,80,.15); color: var(--accent-green); border-color: var(--accent-green);
+  }
+  main { flex: 1; display: flex; overflow: hidden; }
+  .map-area {
+    flex: 1; position: relative; overflow: hidden;
+    background: radial-gradient(ellipse at 50% 50%, #182912 0%, #0d1710 70%);
+  }
+  .map-area::before {
+    content: ''; position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(126,200,80,.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(126,200,80,.04) 1px, transparent 1px);
+    background-size: 40px 40px; pointer-events: none;
+  }
+  #map-svg { width: 100%; height: 100%; display: block; }
+  .district-path {
+    cursor: default; transition: filter 0.2s, opacity 0.2s;
+    stroke: rgba(180, 230, 140, 0.55); stroke-width: 1.5;
+    stroke-linejoin: round; fill: rgba(30, 50, 20, 0.4);
+  }
+  .edit-mode .district-path { cursor: crosshair; }
+  .district-path:hover { filter: brightness(1.25); }
+  .district-path.selected {
+    stroke: var(--accent-cyan) !important; stroke-width: 2.5 !important;
+    filter: drop-shadow(0 0 8px rgba(34,211,238,0.6));
+  }
+  .district-label {
+    font-family: 'Noto Sans KR', sans-serif; font-size: 10.5px; font-weight: 500;
+    fill: rgba(240, 255, 230, 0.92); text-anchor: middle; dominant-baseline: middle;
+    pointer-events: none; user-select: none;
+    filter: drop-shadow(0 1px 3px rgba(0,0,0,0.9));
+  }
+  .count-label {
+    font-family: 'Noto Sans KR', sans-serif; font-size: 9px; font-weight: 700;
+    fill: rgba(255,220,100,0.9); text-anchor: middle; dominant-baseline: middle;
+    pointer-events: none; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.9));
+  }
+  #edit-popup {
+    position: absolute; background: rgba(15, 25, 12, 0.96);
+    backdrop-filter: blur(16px); border: 1px solid rgba(34, 211, 238, 0.4);
+    border-radius: 12px; padding: 16px; width: 220px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.6), 0 0 20px rgba(34,211,238,0.15);
+    display: none; z-index: 100;
+  }
+  #edit-popup.visible { display: block; }
+  .popup-title {
+    font-size: 11px; font-weight: 700; color: var(--accent-cyan);
+    letter-spacing: .5px; text-transform: uppercase; margin-bottom: 12px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .popup-close { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 14px; }
+  .popup-close:hover { color: var(--text-primary); }
+  .popup-field { margin-bottom: 10px; }
+  .popup-field label { display: block; font-size: 10px; color: var(--text-secondary); margin-bottom: 4px; font-weight: 500; }
+  .popup-field input[type=text], .popup-field input[type=number] {
+    width: 100%; padding: 6px 10px; background: rgba(255,255,255,.06);
+    border: 1px solid var(--border-bright); border-radius: 6px;
+    color: var(--text-primary); font-family: inherit; font-size: 12px; outline: none;
+    transition: border-color .15s;
+  }
+  .popup-field input:focus { border-color: var(--accent-cyan); }
+  .color-palette { display: flex; gap: 6px; flex-wrap: wrap; }
+  .color-swatch {
+    width: 22px; height: 22px; border-radius: 5px; cursor: pointer;
+    border: 2px solid transparent; transition: transform .15s, border-color .15s;
+  }
+  .color-swatch:hover { transform: scale(1.2); }
+  .color-swatch.selected-color { border-color: white; transform: scale(1.15); }
+  .popup-apply {
+    width: 100%; padding: 7px; margin-top: 6px;
+    background: linear-gradient(135deg, #22d3ee22, #7ec85022);
+    border: 1px solid var(--accent-cyan); border-radius: 7px;
+    color: var(--accent-cyan); font-family: inherit; font-size: 12px;
+    font-weight: 600; cursor: pointer; transition: all .15s;
+  }
+  .popup-apply:hover { background: rgba(34,211,238,0.15); }
+  .sidebar {
+    width: 300px; flex-shrink: 0; background: var(--bg-panel);
+    border-left: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden;
+  }
+  .sidebar-header { padding: 20px 20px 12px; border-bottom: 1px solid var(--border); }
+  .sidebar-title { font-size: 16px; font-weight: 700; }
+  .sidebar-sub { font-size: 11px; color: var(--text-secondary); margin-top: 3px; }
+  .stat-cards { display: flex; gap: 8px; padding: 14px 16px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  .stat-card { flex: 1; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 10px 8px; text-align: center; }
+  .stat-card .s-label { font-size: 9px; color: var(--text-secondary); font-weight: 500; }
+  .stat-card .s-value { font-size: 17px; font-weight: 900; margin-top: 3px; }
+  .stat-card:nth-child(1) .s-value { color: var(--accent-amber); }
+  .stat-card:nth-child(2) .s-value { color: var(--accent-green); }
+  .stat-card:nth-child(3) .s-value { color: var(--accent-cyan); }
+  .chart-area { flex: 1; overflow-y: auto; padding: 14px 16px; }
+  .chart-area::-webkit-scrollbar { width: 4px; }
+  .chart-area::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  .chart-label { font-size: 11px; font-weight: 600; color: var(--text-secondary); margin-bottom: 12px; letter-spacing: .5px; }
+  .bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 9px; }
+  .bar-name { font-size: 11px; color: var(--text-secondary); width: 60px; flex-shrink: 0; text-align: right; }
+  .bar-track { flex: 1; background: rgba(255,255,255,.05); border-radius: 4px; overflow: hidden; height: 18px; }
+  .bar-fill {
+    height: 100%; border-radius: 4px; display: flex; align-items: center;
+    justify-content: flex-end; padding-right: 6px; min-width: 18px;
+    transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1), background 0.4s;
+  }
+  .bar-val { font-size: 9px; font-weight: 700; color: rgba(255,255,255,0.85); }
+  .bar-row.highlighted .bar-name { color: var(--accent-cyan); font-weight: 700; }
+  .edit-hint {
+    position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
+    background: rgba(15,25,12,0.9); border: 1px solid var(--border-bright);
+    border-radius: 20px; padding: 7px 16px; font-size: 11px; color: var(--text-secondary);
+    pointer-events: none; white-space: nowrap; transition: opacity .3s; opacity: 0;
+  }
+  .edit-hint.show { opacity: 1; }
+  .month-badge {
+    position: absolute; top: 14px; right: 14px;
+    background: rgba(15,25,12,0.8); border: 1px solid var(--border);
+    border-radius: 8px; padding: 6px 12px; font-size: 11px; color: var(--text-secondary);
+  }
+  .month-badge strong { color: var(--text-primary); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">🌿</div>
+    <div>
+      <div class="logo-text">그냥드림 대시보드</div>
+      <div class="logo-sub">은평구 이용자 분포 현황</div>
+    </div>
+  </div>
+  <div class="header-badges">
+    <span class="badge cyan">● 실시간</span>
+    <span class="badge">2026년 9월</span>
+    <span class="badge">은평구 18개 동</span>
+  </div>
+  <button class="edit-toggle" id="editToggle" onclick="toggleEditMode()">✏️ 편집 모드</button>
+</header>
+
+<main>
+  <div class="map-area" id="mapArea">
+    <svg id="map-svg" viewBox="0 0 615 742" xmlns="http://www.w3.org/2000/svg">
+      <!-- Background Map Image -->
+      <image href="스크린샷 2026-09-16 154402.png" x="0" y="0" width="615" height="742" opacity="0.4" />
+      
+      <!-- 진관동 -->
+      <polygon class="district-path" id="d-진관동"     points="190,70 380,30 520,100 550,200 450,280 270,250 180,180" data-name="진관동"   data-count="82"/>
+      <!-- 불광2동 -->
+      <polygon class="district-path" id="d-불광2동"   points="270,250 450,280 430,350 280,350" data-name="불광2동" data-count="119"/>
+      <!-- 갈현1동 -->
+      <polygon class="district-path" id="d-갈현1동"   points="190,240 270,250 280,300 190,300" data-name="갈현1동"  data-count="127"/>
+      <!-- 갈현2동 -->
+      <polygon class="district-path" id="d-갈현2동"   points="190,300 280,300 290,380 180,380" data-name="갈현2동"  data-count="89"/>
+      <!-- 구산동 -->
+      <polygon class="district-path" id="d-구산동"     points="150,380 250,380 260,460 140,460" data-name="구산동"   data-count="97"/>
+      <!-- 대조동 -->
+      <polygon class="district-path" id="d-대조동"     points="250,380 340,380 350,440 260,460" data-name="대조동"   data-count="58"/>
+      <!-- 불광1동 -->
+      <polygon class="district-path" id="d-불광1동"   points="280,350 430,350 450,430 340,380" data-name="불광1동"  data-count="148"/>
+      <!-- 녹번동 -->
+      <polygon class="district-path" id="d-녹번동"     points="300,450 450,430 460,530 290,530" data-name="녹번동"   data-count="134"/>
+      <!-- 역촌동 -->
+      <polygon class="district-path" id="d-역촌동"     points="200,460 300,450 290,530 200,530" data-name="역촌동"   data-count="112"/>
+      <!-- 신사1동 -->
+      <polygon class="district-path" id="d-신사1동"   points="150,530 250,530 250,600 130,600" data-name="신사1동"  data-count="163"/>
+      <!-- 응암1동 -->
+      <polygon class="district-path" id="d-응암1동"   points="250,530 400,530 390,580 250,580" data-name="응암1동"  data-count="88"/>
+      <!-- 신사2동 -->
+      <polygon class="district-path" id="d-신사2동"   points="130,600 230,600 240,650 110,650" data-name="신사2동"  data-count="141"/>
+      <!-- 응암2동 -->
+      <polygon class="district-path" id="d-응암2동"   points="250,580 350,580 340,650 240,650" data-name="응암2동"  data-count="72"/>
+      <!-- 수색동 -->
+      <polygon class="district-path" id="d-수색동"     points="30,650 130,650 150,720 50,720"   data-name="수색동"   data-count="67"/>
+      <!-- 증산동 -->
+      <polygon class="district-path" id="d-증산동"     points="130,650 200,650 220,720 150,720" data-name="증산동"   data-count="103"/>
+      <!-- 응암3동 -->
+      <polygon class="district-path" id="d-응암3동"   points="220,650 300,650 300,720 220,720" data-name="응암3동"  data-count="94"/>
+    </svg>
+
+    <div id="edit-popup">
+      <div class="popup-title">
+        <span>구역 편집</span>
+        <button class="popup-close" onclick="closePopup()">✕</button>
+      </div>
+      <div class="popup-field">
+        <label>동네 이름</label>
+        <input type="text" id="popup-name" placeholder="동 이름 입력">
+      </div>
+      <div class="popup-field">
+        <label>테마 색상</label>
+        <div class="color-palette" id="color-palette"></div>
+      </div>
+      <div class="popup-field">
+        <label>이용자 수 (명)</label>
+        <input type="number" id="popup-count" min="0" max="9999" placeholder="0">
+      </div>
+      <button class="popup-apply" onclick="applyEdit()">✓ 지도에 반영</button>
+    </div>
+
+    <div class="month-badge"><strong>2026년 9월</strong> 기준</div>
+    <div class="edit-hint" id="editHint">✏️ 편집 모드 — 구역을 클릭하여 수정하세요</div>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-title">그냥드림 이용자 분포</div>
+      <div class="sidebar-sub">은평구 전체 행정동 현황</div>
+    </div>
+    <div class="stat-cards">
+      <div class="stat-card"><div class="s-label">총 이용자</div><div class="s-value" id="total-count">—</div></div>
+      <div class="stat-card"><div class="s-label">활성 구역</div><div class="s-value" id="active-zones">—</div></div>
+      <div class="stat-card"><div class="s-label">최다 이용</div><div class="s-value" id="top-zone">—</div></div>
+    </div>
+    <div class="chart-area">
+      <div class="chart-label">📊 구역별 이용자 순위</div>
+      <div id="bar-chart"></div>
+    </div>
+  </aside>
+</main>
+
+<script>
+const COLORS = [
+  { hex: '#fbbf24' }, { hex: '#f97316' }, { hex: '#ef4444' },
+  { hex: '#22c55e' }, { hex: '#22d3ee' }, { hex: '#a78bfa' },
+  { hex: '#f472b6' }, { hex: '#84cc16' },
+];
+
+const districts = {};
+let editMode = false;
+let popupDistrictId = null;
+let selectedColor = COLORS[0].hex;
+
+function hexRGBA(hex, a) {
+  const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+  return `rgba(${r},${g},${b},${a})`;
+}
+
+function centroid(el) {
+  const pts = el.points; let cx = 0, cy = 0;
+  for (let i = 0; i < pts.numberOfItems; i++) { cx += pts.getItem(i).x; cy += pts.getItem(i).y; }
+  return { x: cx/pts.numberOfItems, y: cy/pts.numberOfItems };
+}
+
+// Init districts
+document.querySelectorAll('.district-path').forEach(el => {
+  const id = el.id, name = el.dataset.name, count = parseInt(el.dataset.count)||0;
+  let color = '#1e3514';
+  if      (count > 150) color = '#ef4444';
+  else if (count > 120) color = '#f97316';
+  else if (count > 90)  color = '#fbbf24';
+  else if (count > 60)  color = '#84cc16';
+  else if (count > 0)   color = '#22c55e';
+  districts[id] = { id, name, count, color };
+  el.style.fill = count > 0 ? hexRGBA(color, 0.55) : 'rgba(30,60,18,0.25)';
+});
+
+function renderLabels() {
+  document.querySelectorAll('.district-label,.count-label').forEach(e => e.remove());
+  const svg = document.getElementById('map-svg');
+  Object.values(districts).forEach(d => {
+    const el = document.getElementById(d.id);
+    const c = centroid(el);
+    const t = document.createElementNS('http://www.w3.org/2000/svg','text');
+    t.setAttribute('x', c.x); t.setAttribute('y', c.y - (d.count > 0 ? 7 : 0));
+    t.setAttribute('class','district-label'); t.textContent = d.name;
+    svg.appendChild(t);
+    if (d.count > 0) {
+      const n = document.createElementNS('http://www.w3.org/2000/svg','text');
+      n.setAttribute('x', c.x); n.setAttribute('y', c.y + 9);
+      n.setAttribute('class','count-label'); n.textContent = d.count + '명';
+      svg.appendChild(n);
+    }
+  });
+}
+
+function renderChart() {
+  const sorted = Object.values(districts).filter(d=>d.count>0).sort((a,b)=>b.count-a.count);
+  const max = sorted.length > 0 ? sorted[0].count : 1;
+  const container = document.getElementById('bar-chart');
+  container.innerHTML = '';
+  sorted.forEach(d => {
+    const pct = (d.count/max*100).toFixed(1);
+    const row = document.createElement('div');
+    row.className = 'bar-row' + (d.id === popupDistrictId ? ' highlighted' : '');
+    row.innerHTML = `<div class="bar-name">${d.name}</div>
+      <div class="bar-track">
+        <div class="bar-fill" style="width:${pct}%;background:linear-gradient(90deg,${hexRGBA(d.color,0.6)},${hexRGBA(d.color,0.9)})">
+          <span class="bar-val">${d.count}</span>
+        </div>
+      </div>`;
+    container.appendChild(row);
+  });
+  const total = Object.values(districts).reduce((s,d)=>s+d.count, 0);
+  const active = Object.values(districts).filter(d=>d.count>0).length;
+  document.getElementById('total-count').textContent = total + '명';
+  document.getElementById('active-zones').textContent = active + '/' + Object.keys(districts).length;
+  document.getElementById('top-zone').textContent = sorted.length > 0 ? sorted[0].name : '—';
+}
+
+function refreshMap() {
+  Object.values(districts).forEach(d => {
+    document.getElementById(d.id).style.fill = d.count > 0 ? hexRGBA(d.color, 0.55) : 'rgba(30,60,18,0.25)';
+  });
+  renderLabels(); renderChart();
+}
+
+// District click
+document.querySelectorAll('.district-path').forEach(el => {
+  el.addEventListener('click', e => {
+    e.stopPropagation();
+    if (!editMode) return;
+    const id = el.id, d = districts[id];
+    document.querySelectorAll('.district-path').forEach(p => p.classList.remove('selected'));
+    el.classList.add('selected');
+    popupDistrictId = id;
+    document.getElementById('popup-name').value = d.name;
+    document.getElementById('popup-count').value = d.count;
+    selectedColor = d.color;
+    renderPalette();
+    const svgRect = document.getElementById('map-svg').getBoundingClientRect();
+    const popup = document.getElementById('edit-popup');
+    let px = e.clientX - svgRect.left + 16;
+    let py = e.clientY - svgRect.top - 20;
+    if (px + 230 > svgRect.width) px = e.clientX - svgRect.left - 240;
+    if (py + 270 > svgRect.height) py = svgRect.height - 275;
+    popup.style.left = px + 'px'; popup.style.top = py + 'px';
+    popup.classList.add('visible');
+    renderChart();
+  });
+});
+
+document.getElementById('mapArea').addEventListener('click', closePopup);
+
+function toggleEditMode() {
+  editMode = !editMode;
+  const btn = document.getElementById('editToggle');
+  const hint = document.getElementById('editHint');
+  const svg = document.getElementById('map-svg');
+  if (editMode) {
+    btn.classList.add('on'); btn.textContent = '✏️ 편집 ON';
+    hint.classList.add('show'); svg.style.cursor = 'crosshair';
+  } else {
+    btn.classList.remove('on'); btn.textContent = '✏️ 편집 모드';
+    hint.classList.remove('show'); svg.style.cursor = 'default';
+    closePopup();
+  }
+}
+
+function renderPalette() {
+  const p = document.getElementById('color-palette');
+  p.innerHTML = '';
+  COLORS.forEach(c => {
+    const sw = document.createElement('div');
+    sw.className = 'color-swatch' + (c.hex === selectedColor ? ' selected-color' : '');
+    sw.style.background = c.hex;
+    sw.onclick = () => { selectedColor = c.hex; renderPalette(); };
+    p.appendChild(sw);
+  });
+}
+
+function closePopup() {
+  document.getElementById('edit-popup').classList.remove('visible');
+  document.querySelectorAll('.district-path').forEach(p => p.classList.remove('selected'));
+  popupDistrictId = null; renderChart();
+}
+
+function applyEdit() {
+  if (!popupDistrictId) return;
+  const d = districts[popupDistrictId];
+  d.name = document.getElementById('popup-name').value || d.name;
+  d.count = parseInt(document.getElementById('popup-count').value) || 0;
+  d.color = selectedColor;
+  document.getElementById(popupDistrictId).dataset.name = d.name;
+  refreshMap();
+}
+
+renderPalette();
+refreshMap();
+</script>
+</body>
+</html>

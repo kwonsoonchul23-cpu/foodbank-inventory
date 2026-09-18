@@ -14,6 +14,7 @@ MASTER_CSV = os.path.join(DATA_DIR, "geodream_master.csv")
 DAILY_CSV  = os.path.join(DATA_DIR, "geodream_daily.csv")
 HISTORY_JSON = os.path.join(DATA_DIR, "geodream_history.json")
 MAP_CONFIG_KEY = "geodream_map_config"
+MAP_COMPONENT_DIR = os.path.join(BASE_DIR, "components", "geodream_map")
 
 def _load_history():
     if not os.path.exists(HISTORY_JSON): return []
@@ -208,276 +209,7 @@ def merge_data(existing_df, new_df, date_col="date"):
             conflict_details.append(f"- **{d}**: 기존 누적({old_val}명) vs 업로드({new_val}명)")
     return conflict_details, new_dates
 
-def build_svg_map_html(cfg, count_by_dong, dong_trends, font_size=12):
-    dongs   = cfg["dongs"]
-    bg      = cfg["bg_color"]
-    bc      = cfg["border_color"]
-    hc      = cfg["hover_color"]
-    tt_bg   = cfg["tooltip_bg"]
-    tt_tx   = cfg["tooltip_text"]
-    ff      = cfg["font_family"]
-
-    max_cnt = max((count_by_dong.get(d["name"], 0) for d in dongs), default=1)
-    if max_cnt == 0: max_cnt = 1
-
-    svg_polygons = ""
-    for d in dongs:
-        cnt  = count_by_dong.get(d["name"], 0)
-        heat = cnt / max_cnt
-        try:
-            base = d["color"].lstrip("#")
-            r, g, bv = int(base[0:2],16), int(base[2:4],16), int(base[4:6],16)
-        except:
-            r, g, bv = 180, 200, 180
-        r2 = min(255, int(r + heat*(220-r)))
-        g2 = max(0,   int(g + heat*(80 -g)))
-        b2 = max(0,   int(bv+ heat*(40 -bv)))
-        fill = f"rgb({r2},{g2},{b2})"
-        trends_safe = json.dumps(dong_trends.get(d["name"], []), ensure_ascii=False).replace("'", "&#39;")
-        svg_polygons += (
-            f'<polygon class="dz" id="z-{d["id"]}" '
-            f'data-name="{d["name"]}" data-cnt="{cnt}" data-color="{d["color"]}" '
-            f"data-trends='{trends_safe}' "
-            f'points="{d["points"]}" fill="{fill}" '
-            f'stroke="{bc}" stroke-width="1.5" stroke-linejoin="round"/>\n'
-        )
-
-    svg_labels = ""
-    for d in dongs:
-        safe_id = d["id"]
-        dong_name = d["name"]
-        pts = [(float(x.split(",")[0]), float(x.split(",")[1])) for x in d["points"].split()]
-        cx  = sum(p[0] for p in pts)/len(pts)
-        cy  = sum(p[1] for p in pts)/len(pts)
-        cnt = count_by_dong.get(d["name"], 0)
-        svg_labels += f'''
-        <g id="lbl-{safe_id}" style="pointer-events:none;">
-            <text x="{cx}" y="{cy}" fill="#ffffff" font-size="{cfg['font_size']}px" font-weight="bold" font-family="{cfg['font_family']}" text-anchor="middle" dominant-baseline="middle" style="text-shadow: 1px 1px 2px rgba(0,0,0,0.8);">{dong_name}</text>
-            <text x="{cx}" y="{cy+14}" fill="#e0e0e0" font-size="{max(10, cfg['font_size']-2)}px" font-weight="bold" font-family="{cfg['font_family']}" text-anchor="middle" dominant-baseline="middle" id="lbl-{safe_id}" style="text-shadow: 1px 1px 2px rgba(0,0,0,0.8);">{f'({cnt}명)' if cnt > 0 else ''}</text>
-        </g>
-        '''
-
-    total_users = sum(count_by_dong.values())
-    trends_js   = json.dumps(dong_trends, ensure_ascii=False)
-
-    return f"""<!DOCTYPE html><html><head><meta charset="utf-8">
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;700;900&display=swap');
-*{{box-sizing:border-box;margin:0;padding:0}}
-body{{background:{bg};font-family:{ff};overflow:hidden}}
-.outer{{position:relative;width:100%;max-width:780px;margin:0 auto;background:{bg};border-radius:20px;padding:18px 18px 24px;box-shadow:0 20px 60px rgba(0,0,0,.4)}}
-.ttl{{font-size:20px;font-weight:900;color:#F0E6D2;text-align:center;margin-bottom:10px;letter-spacing:-0.5px}}
-.ttl em{{color:{hc};font-style:normal}}
-.fbar{{display:flex;justify-content:center;gap:6px;margin-bottom:14px}}
-.fb{{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.15);color:#A8B5A2;padding:5px 18px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;transition:all .25s;font-family:{ff}}}
-.fb.on{{background:{hc};color:#2B3B2B;border-color:{hc}}}
-.row{{display:flex;gap:12px;align-items:flex-start}}
-.sv{{flex:1;min-width:0}}
-svg{{width:100%;height:auto;display:block}}
-.dz{{opacity:.82;cursor:pointer;transition:filter .2s,opacity .2s,stroke-width .2s}}
-.dz:hover,.dz.hl{{opacity:1;filter:drop-shadow(0 0 12px {hc}CC);stroke:{hc}!important;stroke-width:2.5px!important}}
-.dl{{font-family:{ff};font-size:{font_size}px;font-weight:700;fill:rgba(255,255,255,.95);text-shadow:0 2px 5px rgba(0,0,0,0.8), 0 0 8px rgba(0,0,0,0.6)}}
-.dc{{font-size:{int(font_size*0.8)}px;font-weight:600;fill:{hc};text-shadow:0 1px 3px rgba(0,0,0,0.8)}}
-.sb{{width:155px;flex-shrink:0;display:flex;flex-direction:column;gap:10px}}
-.sc{{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:12px;text-align:center}}
-.sn{{font-size:24px;font-weight:900;color:{hc}}}
-.sl{{font-size:10px;color:#A8B5A2;margin-top:2px}}
-.lb-box{{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:12px}}
-.lt{{font-size:11px;font-weight:700;color:{hc};margin-bottom:8px}}
-.lr{{display:flex;align-items:center;gap:6px;margin-bottom:6px}}
-.ln{{font-size:10px;font-weight:600;color:#D0D8C8;width:36px;flex-shrink:0}}
-.lbw{{flex:1;height:6px;background:rgba(255,255,255,.08);border-radius:3px;overflow:hidden}}
-.lb{{height:100%;border-radius:3px;background:linear-gradient(90deg,#8BAF88,{hc})}}
-.lv{{font-size:10px;font-weight:700;color:{hc};width:30px;text-align:right}}
-#tt{{position:fixed;display:none;background:{tt_bg};backdrop-filter:blur(16px);border:1px solid {hc}44;border-radius:16px;padding:14px 16px;min-width:205px;max-width:240px;box-shadow:0 20px 50px rgba(0,0,0,.6);z-index:9999;pointer-events:none;color:{tt_tx};font-family:{ff}}}
-.th{{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,.1)}}
-.tn{{font-size:15px;font-weight:900;color:{hc}}}
-.tc{{font-size:11px;font-weight:600}}
-.tr{{display:flex;justify-content:space-between;padding:3px 0;font-size:11px}}
-.tk{{color:#A8B5A2}}.tv{{font-weight:700;color:#F0E6D2}}
-.tct{{font-size:10px;color:#A8B5A2;margin:8px 0 4px}}
-.tbs{{display:flex;align-items:flex-end;height:48px;gap:3px;border-bottom:1px solid rgba(255,255,255,.1);padding-bottom:2px}}
-.tb{{flex:1;border-radius:3px 3px 0 0;min-width:5px;background:linear-gradient(180deg,{hc},#5B7059);transition:height .4s ease}}
-</style></head><body>
-<div class="outer">
-  <div class="ttl">'<em>그냥드림</em>' 은평구 이용자 분포</div>
-  <div class="fbar">
-    <button class="fb on" data-f="monthly">매월(최근)</button>
-    <button class="fb" data-f="daily">매일(최근)</button>
-    <button class="fb" data-f="yearly">매년(최근)</button>
-    <button class="fb" data-f="all">전체 누적</button>
-  </div>
-  <div class="row">
-    <div class="sv">
-      <svg viewBox="60 0 820 720" xmlns="http://www.w3.org/2000/svg">
-{svg_polygons}
-{svg_labels}
-      </svg>
-    </div>
-    <div class="sb">
-      <div class="sc"><div class="sn" id="tnum">{total_users}</div><div class="sl">총 이용자 수</div></div>
-      <div class="lb-box">
-        <div class="lt">▲ 전체 구역 분포</div>
-        <div id="list-items" style="max-height: 280px; overflow-y: auto; padding-right: 5px;"></div>
-      </div>
-    </div>
-  </div>
-</div>
-<div id="tt">
-  <div class="th"><span class="tn" id="ttn">동 이름</span><span class="tc" id="ttc"></span></div>
-  <div class="tr"><span class="tk">누적 이용자</span><span class="tv" id="tti">0명</span></div>
-  <div class="tr"><span class="tk">비율</span><span class="tv" id="ttr">0%</span></div>
-  <div class="tct">방문 추이</div>
-  <div class="tbs" id="ttbs"></div>
-</div>
-<script>
-const TR={trends_js};
-let TOT={total_users or 1};
-const tt=document.getElementById('tt');
-const zones=document.querySelectorAll('.dz');
-let currentFilter = 'monthly';
-
-let maxDate = '2000-01-01';
-Object.values(TR).forEach(trs => trs.forEach(t => {{ if(t.date > maxDate) maxDate = t.date; }}));
-const latestYear = maxDate.substring(0, 4);
-const latestMonth = maxDate.substring(0, 7);
-const latestDay = maxDate;
-
-function getFilteredCount(nm) {{
-  const trs = TR[nm] || [];
-  let sum = 0;
-  trs.forEach(t => {{
-    if(currentFilter === 'all') sum += t.count;
-    else if(currentFilter === 'yearly' && t.date.startsWith(latestYear)) sum += t.count;
-    else if(currentFilter === 'monthly' && t.date.startsWith(latestMonth)) sum += t.count;
-    else if(currentFilter === 'daily' && t.date === latestDay) sum += t.count;
-  }});
-  return sum;
-}}
-
-function getAggregatedTrends(trs, filter) {{
-  let agg = {{}};
-  trs.forEach(t => {{
-    let key = t.date;
-    if(filter === 'monthly' || filter === 'all') key = t.date.substring(0, 7);
-    if(filter === 'yearly') key = t.date.substring(0, 4);
-    agg[key] = (agg[key] || 0) + t.count;
-  }});
-  return Object.keys(agg).sort().map(k => ({{date: k, count: agg[k]}}));
-}}
-
-function updateMap() {{
-  let total = 0;
-  let counts = {{}};
-  let max_cnt = 1;
-  zones.forEach(z => {{
-    const nm = z.dataset.name;
-    const cnt = getFilteredCount(nm);
-    counts[nm] = cnt;
-    total += cnt;
-    if(cnt > max_cnt) max_cnt = cnt;
-  }});
-  
-  document.getElementById('tnum').textContent = total;
-  TOT = total || 1;
-  
-  let listHtml = '';
-  let sorted = Object.keys(counts).map(k => ({{name: k, cnt: counts[k]}})).sort((a,b)=>b.cnt - a.cnt);
-  sorted.forEach(item => {{
-    if(item.cnt > 0) {{
-      let bar_w = Math.floor((item.cnt/max_cnt)*100);
-      listHtml += `<div class="lr"><span class="ln">${{item.name}}</span>` +
-                  `<div class="lbw"><div class="lb" style="width:${{bar_w}}%"></div></div>` +
-                  `<span class="lv">${{item.cnt}}명</span></div>`;
-    }}
-  }});
-  if(!listHtml) listHtml = '<div style="font-size:11px;color:#666;text-align:center;">데이터 없음</div>';
-  document.getElementById('list-items').innerHTML = listHtml;
-
-  zones.forEach(z => {{
-    const nm = z.dataset.name;
-    const cnt = counts[nm];
-    z.dataset.cnt = cnt;
-    const heat = cnt / max_cnt;
-    
-    const base = z.dataset.color.replace('#','');
-    let r = parseInt(base.substring(0,2),16);
-    let g = parseInt(base.substring(2,4),16);
-    let b = parseInt(base.substring(4,6),16);
-    if(isNaN(r)) {{ r=180; g=200; b=180; }}
-    let r2 = Math.min(255, Math.floor(r + heat*(220-r)));
-    let g2 = Math.max(0,   Math.floor(g + heat*(80-g)));
-    let b2 = Math.max(0,   Math.floor(b + heat*(40-b)));
-    z.setAttribute('fill', `rgb(${{r2}},${{g2}},${{b2}})`);
-    
-    const lbl = document.getElementById('lbl-' + z.id.substring(2));
-    if(lbl) lbl.textContent = cnt > 0 ? `(${{cnt}}명)` : '';
-  }});
-}}
-
-function posTt(e){{
-  let lx=e.clientX+16,ly=e.clientY-20;
-  if(lx+250>window.innerWidth)lx=e.clientX-258;
-  if(ly+290>window.innerHeight)ly=e.clientY-285;
-  if(ly<4)ly=4;
-  tt.style.left=lx+'px';tt.style.top=ly+'px';
-}}
-
-function showTt(e,z){{
-  const nm=z.dataset.name,cnt=parseInt(z.dataset.cnt)||0;
-  const trs_raw=TR[nm]||[];
-  const trs=getAggregatedTrends(trs_raw, currentFilter);
-  document.getElementById('ttn').textContent=nm;
-  document.getElementById('tti').textContent=cnt+'명';
-  document.getElementById('ttr').textContent=(cnt/TOT*100).toFixed(1)+'%';
-  const cel=document.getElementById('ttc');
-  if(trs.length>=2){{
-    const diff=trs[trs.length-1].count-trs[trs.length-2].count;
-    cel.textContent=(diff>=0?'▲+':'▼')+diff+'명';
-    cel.style.color=diff>=0?'#7FC97F':'#FF8888';
-  }}else cel.textContent='';
-  const bs=document.getElementById('ttbs');
-  bs.innerHTML='';
-  bs.style.display = 'block';
-  bs.style.borderBottom = 'none';
-  bs.style.height = 'auto';
-  
-  const rc=trs.slice(-5).reverse();
-  rc.forEach(t=>{{
-    const r = document.createElement('div');
-    r.style.display = 'flex';
-    r.style.justifyContent = 'space-between';
-    r.style.fontSize = '10.5px';
-    r.style.marginBottom = '3px';
-    r.innerHTML = `<span style="color:#A8B5A2">${{t.date}}</span><span style="color:#F0E6D2;font-weight:bold">${{t.count}}명</span>`;
-    bs.appendChild(r);
-  }});
-  if(!rc.length)bs.innerHTML='<span style="font-size:10px;color:#888">데이터 없음</span>';
-  posTt(e);tt.style.display='block';
-}}
-
-zones.forEach(z=>{{
-  z.addEventListener('mouseenter',function(e){{
-    zones.forEach(o=>o.classList.remove('hl'));
-    this.classList.add('hl');showTt(e,this);
-  }});
-  z.addEventListener('mousemove',posTt);
-  z.addEventListener('mouseleave',function(){{
-    this.classList.remove('hl');tt.style.display='none';
-  }});
-}});
-
-document.querySelectorAll('.fb').forEach(b=>{{
-  b.addEventListener('click',()=>{{
-    document.querySelectorAll('.fb').forEach(x=>x.classList.remove('on'));
-    b.classList.add('on');
-    currentFilter = b.dataset.f;
-    updateMap();
-  }});
-}});
-
-updateMap();
-</script></body></html>"""
+# build_svg_map_html is removed as it's now handled by the frontend component.
 
 
 def render_geodream_page():
@@ -489,7 +221,7 @@ def render_geodream_page():
         st.success("✅ 엑셀 데이터가 성공적으로 누적(반영)되었습니다!", icon="🎉")
         st.session_state["geodream_upload_success"] = False
 
-    master_df = load_data(MASTER_CSV, ["date", "dong", "count"])
+    master_df = load_data(MASTER_CSV, ["date", "dong", "count", "visit_type"])
     daily_df  = load_data(DAILY_CSV,  ["date", "total_visitors"])
     cfg = get_map_config()
 
@@ -574,13 +306,16 @@ def render_geodream_page():
 
     st.divider()
 
-    count_by_dong, dong_trends = {}, {}
+    count_by_dong, dong_trends, dong_breakdown = {}, {}, {}
     if not master_df.empty:
         agg = master_df.groupby("dong")["count"].sum()
         count_by_dong = agg.to_dict()
         for dong, grp in master_df.groupby("dong"):
             tr = grp.groupby("date")["count"].sum().reset_index().sort_values("date")
             dong_trends[dong] = tr.to_dict("records")
+            if "visit_type" in grp.columns:
+                brk = grp.groupby("visit_type")["count"].sum().reset_index()
+                dong_breakdown[dong] = brk.to_dict("records")
 
     # 통폐합 반영
     merged = cfg.get("merged_zones", {})
@@ -618,8 +353,47 @@ def render_geodream_page():
             for dong, grp in selected_df.groupby("dong"):
                 dong_trends[dong] = [{"date": date_option, "count": int(grp["count"].sum())}]
     
-    html = build_svg_map_html(cfg, count_by_dong, dong_trends, font_size=font_size)
-    components.html(html, height=820, scrolling=False)
+    districts_data = []
+    for d in cfg["dongs"]:
+        dong_name = d["name"]
+        cnt = count_by_dong.get(dong_name, 0)
+        districts_data.append({
+            "id": f"d-{d['id']}",
+            "name": dong_name,
+            "count": cnt,
+            "color": d.get("color", "#1e3514"),
+            "trend": dong_trends.get(dong_name, []),
+            "breakdown": dong_breakdown.get(dong_name, [])
+        })
+
+    # components.html 방식: index.html 읽고 데이터 주입
+    html_path = os.path.join(MAP_COMPONENT_DIR, "index.html")
+    with open(html_path, "r", encoding="utf-8") as f:
+        map_html = f.read()
+
+    # districts_data를 JSON으로 직렬화하여 JS 초기화 코드 주입
+    init_script = f"""
+    <script>
+    (function() {{
+      const INIT_DATA = {json.dumps(districts_data, ensure_ascii=False)};
+      // district 초기화
+      INIT_DATA.forEach(function(d) {{
+        var el = document.getElementById(d.id);
+        if (el) {{
+          el.dataset.name = d.name;
+          el.dataset.count = d.count;
+          el.dataset.trend = JSON.stringify(d.trend || []);
+          el.dataset.breakdown = JSON.stringify(d.breakdown || []);
+        }}
+        districts[d.id] = d;
+      }});
+      if (typeof refreshMap === 'function') refreshMap();
+    }})();
+    </script>
+    """
+    map_html = map_html.replace("</body>", init_script + "</body>")
+
+    components.html(map_html, height=820, scrolling=False)
 
     if not daily_df.empty:
         st.divider()
@@ -640,37 +414,9 @@ def render_geodream_page():
         c3.metric("운영 일수", f"{len(daily_df)}일")
 
     st.divider()
-    with st.expander("⚙️ 지도 디자인 및 구역 관리 설정"):
-        st.subheader("🎨 색상 & 스타일")
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            new_bg   = st.color_picker("배경색",        cfg["bg_color"])
-            new_hc   = st.color_picker("강조(호버)색",  cfg["hover_color"])
-        with col2:
-            new_bc   = st.color_picker("테두리색",      cfg["border_color"])
-            new_ttx  = st.color_picker("툴팁 글자색",   cfg["tooltip_text"])
-        with col3:
-            new_ttbg = st.text_input("툴팁 배경(rgba)", cfg["tooltip_bg"])
-            new_ff   = st.selectbox("폰트", [
-                "'Noto Sans KR', sans-serif",
-                "'Pretendard', sans-serif",
-                "'Gowun Dodum', sans-serif",
-            ])
-
-        st.subheader("🗺️ 구역(동) 이름 & 색상 수정")
-        dongs = cfg["dongs"]
-        updated_dongs = []
-        for i in range(0, len(dongs), 4):
-            row_dongs = dongs[i:i+4]
-            cols = st.columns(len(row_dongs))
-            for j, d in enumerate(row_dongs):
-                with cols[j]:
-                    nn = st.text_input(f"이름 ({d['name']})", value=d["name"], key=f"dn_{d['id']}")
-                    nc = st.color_picker(f"색", value=d["color"], key=f"dc_{d['id']}")
-                    updated_dongs.append({**d, "name": nn, "color": nc})
-
-        st.subheader("🔀 구역 통폐합 설정")
-        st.caption("여러 동을 하나로 묶어 통계를 합산합니다.")
+    with st.expander("🔀 구역 통폐합 설정 (데이터 병합)"):
+        st.caption("여러 동을 하나로 묶어 지도에 합산하여 표시합니다.")
+        updated_dongs = cfg["dongs"]
         dong_names = [d["name"] for d in updated_dongs]
         existing_merged = cfg.get("merged_zones", {})
         new_merged = {}
@@ -689,19 +435,10 @@ def render_geodream_page():
                 if tgt:
                     new_merged[tgt] = src
 
-            if st.form_submit_button("💾 지도 설정 전체 저장", type="primary"):
-                new_cfg = {
-                    "dongs":        updated_dongs,
-                    "bg_color":     new_bg,
-                    "border_color": new_bc,
-                    "hover_color":  new_hc,
-                    "tooltip_bg":   new_ttbg,
-                    "tooltip_text": new_ttx,
-                    "font_family":  new_ff,
-                    "merged_zones": new_merged,
-                }
-                save_map_config(new_cfg)
-                st.success("✅ 지도 설정이 저장되었습니다!")
+            if st.form_submit_button("💾 통폐합 규칙 저장", type="primary"):
+                cfg["merged_zones"] = new_merged
+                save_map_config(cfg)
+                st.success("✅ 구역 통폐합 설정이 저장되었습니다!")
                 st.rerun()
 
 if __name__ == "__main__":
