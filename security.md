@@ -65,13 +65,22 @@
 
 ---
 
-## 4. 🔒 Streamlit 및 Firebase 특화 보안 모범 사례
+## 4. 🔒 Streamlit 및 데이터 처리(Excel/FMS) 특화 보안 모범 사례
 - **접근 제어 및 권한 검증 강화**: `취약한 접근 제어(Broken Access Control)` 방지를 위해, CRUD 함수 호출 시 반드시 `st.session_state` 기반 권한(Role)을 재검증합니다.
 - **민감 정보(Secrets) 절대 보호**: Firebase API 키 등 민감 정보는 절대 하드코딩하거나 터미널에 출력하지 않으며, 오직 `st.secrets` (`.streamlit/secrets.toml`)를 통해서만 참조합니다.
 - **상태 데이터 직렬화(Serialization) 주의**: `st.cache_data`와 `st.session_state`는 내부적으로 `pickle`을 사용하므로, 외부에서 직접 주입된 신뢰할 수 없는 바이트 스트림을 역직렬화하지 않도록 통제합니다.
+- **엑셀 업로드 및 처리 보안 (XXE & Formula Injection 방어)**:
+  - **XML 외부 엔티티(XXE) 및 DoS 차단**: `openpyxl`은 내부적으로 압축된 XML을 다루므로 최신 버전을 유지하고, 대용량 파일 폭탄(Billion Laughs / Zip Bomb) 방지를 위해 `defusedxml` 결합 및 파일 용량 검증을 권장합니다.
+  - **수식 인젝션(Formula / CSV Injection) 방어**: 수기 입력값(품목명, 특이사항, 이용자 메모 등)을 엑셀 파일로 다시 내보내거나 다운로드(`st.download_button`)할 때, 셀 데이터가 `=`, `+`, `-`, `@`, `|`, `%` 등으로 시작하면 악성 매크로나 외부 명령이 실행될 수 있으므로 접두사 `'`를 붙여 문자열로 강제 이스케이프합니다.
+  - **파일 형식 및 유효성 검증**: 업로드된 파일의 확장자뿐만 아니라 실제 MIME 타입 및 데이터프레임 스키마를 검증하여 비정상 페이로드 주입을 차단합니다.
+- **동적 HTML/JS 주입(XSS) 방어**:
+  - `st.components.v1.html`, `st.html` 또는 SVG 렌더링 시 사용자 입력값이나 외부 엑셀 데이터가 포함될 경우 반드시 `html.escape()` 또는 안전한 JSON 직렬화(`json.dumps`)를 거쳐 스크립트 실행(Cross-Site Scripting)을 원천 차단합니다.
+- **로컬 네트워크 개방 시 보안 통제**:
+  - 모바일 기기 접속을 위해 포트 및 IP를 개방할 때도 CORS 및 XSRF 보호(`enableCORS = true`, `enableXsrfProtection = true`)를 유지하고, 공용 와이파이가 아닌 격리된 내부망(사설망)에서만 바인딩합니다.
 - **Streamlit 최신 취약점 방어 (2026 업데이트)**:
   - **위젯 상태 페이로드 제한**: 클라이언트가 제공하는 쿼리 문자열과 위젯 상태 페이로드 크기를 제한하여 무제한 리소스 할당을 방지합니다 (예: `server.maxWidgetStateSize` 25MB 이하 제한 권장).
-  - **SSRF 및 약한 해시 알고리즘 방어**: 최신 버전(1.59.0 이상)으로 유지하여 CVE-2026-10804(약한 해시), CVE-2026-33682(Windows SSRF) 등의 취약점을 방어하고, child iframes나 주입된 스크립트로부터의 메시지를 차단하는 origin spoofing 방어 설정을 유지합니다.
+  - **SSRF 및 약한 해시 알고리즘 방어**: 최신 버전으로 유지하여 CVE-2026-10804(약한 해시), CVE-2026-33682(Windows SSRF) 등의 취약점을 방어하고, child iframes나 주입된 스크립트로부터의 메시지를 차단하는 origin spoofing 방어 설정을 유지합니다.
+  - **의존성 지속 감사**: `pip-audit` 등을 활용하여 서드파티 패키지 공급망 취약점을 주기적으로 점검합니다.
 
 ---
 
@@ -82,4 +91,4 @@
 
 ## 6. 👁️ AI 코딩 가시성 및 통제권 확보 (Observability & Audit)
 - **AI 생성 코드 방어적 리뷰**: 아키텍처나 인증 등 핵심 보안 로직 수정 시, AI는 임의 결정하지 않고 `Implementation Plan`을 사용자에게 제시하고 승인(HITL)을 받은 후 구현합니다.
-- **지속적 기록(Audit Trail)**: 매일 진행된 대화와 에이전트 도구 사용 패턴은 `260910.md` 등 일일 로그 파일과 `module.md`에 투명하게 기록하여 프로젝트 유지보수성과 보안 모니터링을 극대화합니다.
+- **지속적 기록(Audit Trail)**: 매일 진행된 대화와 에이전트 도구 사용 패턴은 `260918.md` 등 일일 로그 파일과 `module.md`에 투명하게 기록하여 프로젝트 유지보수성과 보안 모니터링을 극대화합니다.

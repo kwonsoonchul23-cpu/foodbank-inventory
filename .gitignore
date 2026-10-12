@@ -25,3 +25,6 @@ Thumbs.db
 *.log
 scratch/
 temp/
+
+firebase_key.json
+.env
