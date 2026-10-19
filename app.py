@@ -1,4 +1,28 @@
 import streamlit as st
+import streamlit as st
+
+# --- 여기서부터 복사해서 붙여넣으세요 ---
+def check_password():
+    if "password_correct" not in st.session_state:
+        st.session_state["password_correct"] = False
+
+    if not st.session_state["password_correct"]:
+        st.warning("🔒 테스트 기간 전용 접속 페이지입니다.")
+        pwd = st.text_input("비밀번호를 입력하세요", type="password")
+        if pwd == "a023541377!" # 이 부분을 원하는 비밀번호로 변경하세요
+            st.session_state["password_correct"] = True
+            st.rerun()
+        elif pwd:
+            st.error("비밀번호가 일치하지 않습니다.")
+        return False
+    return True
+
+if not check_password():
+    st.stop() # 비밀번호를 맞추기 전까지 아래 코드는 숨겨집니다.
+# --- 여기까지 ---
+
+
+
 from auth import init_firebase, login_user, signup_user
 from db import get_sitemap_config
 
