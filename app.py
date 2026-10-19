@@ -9,7 +9,7 @@ def check_password():
     if not st.session_state["password_correct"]:
         st.warning("🔒 테스트 기간 전용 접속 페이지입니다.")
         pwd = st.text_input("비밀번호를 입력하세요", type="password")
-        if pwd == "a023541377!" # 이 부분을 원하는 비밀번호로 변경하세요
+        if pwd == "a023541377!": # 이 부분을 원하는 비밀번호로 변경하세요
             st.session_state["password_correct"] = True
             st.rerun()
         elif pwd:
