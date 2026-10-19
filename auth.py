@@ -1,20 +1,28 @@
 import streamlit as st
 import firebase_admin
 from firebase_admin import credentials, firestore
+import json
+import os
 import hashlib
 
 def init_firebase():
     """Firebase Admin SDK 초기화. 실패 시 더미(Mock) 모드로 동작."""
-    if "firebase_inited" not in st.session_state:
+    if "firebase_inited" not in st.session_state or not st.session_state["firebase_inited"]:
+        # 이미 파이어베이스가 연결되어 있는지 확인 (중복 실행 방지 에러 해결)
         if not firebase_admin._apps:
             try:
-                # secrets.toml에서 firebase 키값 가져오기
-                firebase_secrets = dict(st.secrets["firebase"])
-                # 더미 키인 경우 의도적으로 실패 유도
-                if firebase_secrets.get("project_id") == "your-project-id":
-                    raise ValueError("Firebase 키가 기본값(your-project-id)입니다. 실제 키로 변경해주세요.")
-                
-                cred = credentials.Certificate(firebase_secrets)
+                # 1. 클라우드 환경(st.secrets 금고)에 열쇠가 있는 경우
+                if "FIREBASE_KEY" in st.secrets:
+                    key_val = st.secrets["FIREBASE_KEY"]
+                    key_dict = json.loads(key_val) if isinstance(key_val, str) else dict(key_val)
+                    cred = credentials.Certificate(key_dict)
+                # 2. 로컬 컴퓨터(내 PC) 환경인 경우
+                else:
+                    # 기존에 쓰시던 json 파일 이름을 정확히 넣어주세요
+                    key_file = "firebase_key.json"
+                    key_path = os.path.join(os.path.dirname(__file__), key_file) if os.path.exists(os.path.join(os.path.dirname(__file__), key_file)) else key_file
+                    cred = credentials.Certificate(key_path)
+
                 firebase_admin.initialize_app(cred)
                 st.session_state["firebase_inited"] = True
                 st.session_state["db"] = firestore.client()
@@ -31,6 +39,9 @@ def init_firebase():
                     from db import _save_shared_state
                     _save_shared_state(state)
                 print(f"Firebase Init Error: {e}. Running in Mock Mode (JSON).")
+        else:
+            st.session_state["firebase_inited"] = True
+            st.session_state["db"] = firestore.client()
 
 def _hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
